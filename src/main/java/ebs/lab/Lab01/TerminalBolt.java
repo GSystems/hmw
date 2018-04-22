@@ -14,7 +14,7 @@ public class TerminalBolt extends BaseRichBolt {
 	private HashMap<String, Integer> count;
 
 	public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
-		this.count = new HashMap<String, Integer>();
+		this.count = new HashMap<>();
 	}
 
 	public void execute(Tuple input) {
@@ -29,7 +29,7 @@ public class TerminalBolt extends BaseRichBolt {
 	public void cleanup() {
 		System.out.println("Topology Result:");
 		for (Map.Entry<String, Integer> entry : this.count.entrySet()) {
-			System.out.println(entry.getKey()+" - "+entry.getValue());
+		    System.out.println(entry.getKey() + " - " + entry.getValue());
 		}
 	}
 }

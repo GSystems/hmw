@@ -1,6 +1,6 @@
 package ebs.lab.Lab01;
 
-import ebs.hmw.test.PubSpout;
+import ebs.hmw.spouts.PublicationSpout;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.topology.TopologyBuilder;
@@ -16,13 +16,14 @@ public class App {
 
 		TopologyBuilder builder = new TopologyBuilder();
 
-		PubSpout pubSpout = new PubSpout();
+		PublicationSpout publicationSpout = new PublicationSpout();
 		SplitTextBolt splitbolt = new SplitTextBolt();
 		WordCountBolt countbolt = new WordCountBolt();
 		TerminalBolt terminalbolt = new TerminalBolt();
 
-		builder.setSpout(SPOUT_ID, pubSpout);
+		builder.setSpout(SPOUT_ID, publicationSpout);
 		builder.setBolt(SPLIT_BOLT_ID, splitbolt).shuffleGrouping(SPOUT_ID);
+
 		builder.setBolt(COUNT_BOLT_ID, countbolt).fieldsGrouping(SPLIT_BOLT_ID, new Fields("word"));
 		builder.setBolt(TERMINAL_BOLT_ID, terminalbolt).globalGrouping(COUNT_BOLT_ID);
 

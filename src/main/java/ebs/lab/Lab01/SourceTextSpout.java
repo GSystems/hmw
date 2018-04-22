@@ -12,6 +12,7 @@ import org.apache.storm.tuple.Values;
 public class SourceTextSpout extends BaseRichSpout {
 
 	private SpoutOutputCollector collector;
+	private int i = 0;
 	private String[] sourcetext = {
 			"text one",
 			"text two",
@@ -19,17 +20,13 @@ public class SourceTextSpout extends BaseRichSpout {
 			"text four",
 			"too much text after one"
 	};
-	private int i = 0;
 
 	public void open(Map conf, TopologyContext context, SpoutOutputCollector collector) {
-		// TODO Auto-generated method stub
 		this.collector = collector;
 
 	}
 
 	public void nextTuple() {
-		// TODO Auto-generated method stub
-
 		this.collector.emit(new Values(sourcetext[i]));
 		i++;
 		if (i >= sourcetext.length) {
@@ -39,15 +36,11 @@ public class SourceTextSpout extends BaseRichSpout {
 		try {
 			Thread.sleep(1);
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
 
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		// TODO Auto-generated method stub
 		declarer.declare(new Fields("words"));
-
 	}
-
 }

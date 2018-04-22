@@ -17,14 +17,12 @@ public class WordCountBolt extends BaseRichBolt {
 	private HashMap<String, Integer> count;
 
 	public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
-		// TODO Auto-generated method stub
 		this.collector = collector;
-		this.count = new HashMap<String, Integer>();
+		this.count = new HashMap<>();
 
 	}
 
 	public void execute(Tuple input) {
-		// TODO Auto-generated method stub
 		String word = input.getStringByField("word");
 		Integer wordcount = this.count.get(word);
 
@@ -37,7 +35,6 @@ public class WordCountBolt extends BaseRichBolt {
 	}
 
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		// TODO Auto-generated method stub
 		declarer.declare(new Fields("word","count"));
 	}
 
