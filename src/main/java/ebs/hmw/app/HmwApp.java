@@ -1,8 +1,8 @@
 package ebs.hmw.app;
 
-import ebs.hmw.restrictions.TotalMessagesCount;
 import ebs.hmw.spouts.PublicationSpout;
-import ebs.hmw.restrictions.PrintingHelper;
+import ebs.hmw.util.PrintingHelperBolt;
+import ebs.hmw.spouts.SubscriptionSpout;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.topology.TopologyBuilder;
@@ -21,12 +21,16 @@ public class HmwApp {
 		TopologyBuilder builder = new TopologyBuilder();
 
 		PublicationSpout rawPublications = new PublicationSpout();
-		TotalMessagesCount messagesCountBolt = new TotalMessagesCount(RAW_PUBLICATIONS_KEYWD, "messages");
-		PrintingHelper printerBolt = new PrintingHelper("messages");
+		SubscriptionSpout rawSubscriptions = new SubscriptionSpout();
 
-		builder.setSpout(RAW_PUBLICATIONS_SOURCE, rawPublications);
-		builder.setBolt("total_count_id", messagesCountBolt).shuffleGrouping(RAW_PUBLICATIONS_SOURCE);
-		builder.setBolt(PRINTER_BOLT_ID, printerBolt).globalGrouping("total_count_id");
+		PrintingHelperBolt pubPrinterBolt = new PrintingHelperBolt(RAW_PUBLICATIONS_KEYWD);
+		PrintingHelperBolt subPrinterBolt = new PrintingHelperBolt(RAW_SUBSCRIPTIONS_KEYWD);
+
+		builder.setSpout(RAW_PUB_ID, rawPublications);
+		builder.setSpout(RAW_SUB_ID, rawSubscriptions);
+
+		builder.setBolt(RAW_PUB_PRINTER_BOLT_ID, pubPrinterBolt).shuffleGrouping(RAW_PUB_ID);
+		builder.setBolt(RAW_SUB_PRINTER_BOLT_ID, subPrinterBolt).shuffleGrouping(RAW_SUB_ID);
 
 		Config config = new Config();
 

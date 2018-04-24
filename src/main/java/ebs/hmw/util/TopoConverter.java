@@ -1,7 +1,5 @@
 package ebs.hmw.util;
 
-import sun.rmi.server.InactiveGroupException;
-
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -16,7 +14,7 @@ public class TopoConverter {
         String string = null;
 
         try {
-            integer = Integer.valueOf(integer.toString());
+            integer = Integer.valueOf(input.toString());
         } catch (NumberFormatException e) {
             try {
                 number = Double.valueOf(input.toString());

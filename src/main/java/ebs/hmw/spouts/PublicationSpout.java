@@ -14,18 +14,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static ebs.hmw.util.ConfigurationConstants.PUB_TOTAL_MESSAGES_NUMBER;
+import static ebs.hmw.util.FieldsGenerator.*;
+import static ebs.hmw.util.GeneralConstants.*;
+import static ebs.hmw.util.PubFieldsEnum.*;
+import static ebs.hmw.util.PubSubGeneratorConfiguration.*;
 
 public class PublicationSpout extends BaseRichSpout {
 
-	private int totalMessagesNumber;
 	private SpoutOutputCollector collector;
 	private List<List<Pair>> publications;
+	private int totalMessagesNumber;
 
 	@Override
 	public void open(Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
 		this.collector = spoutOutputCollector;
-		publications = convertFieldsToType(populatePublicationsMap());
+		publications = generatePublicationsMap();
 //		ProjectProperties projectProperties = ProjectProperties.getInstance();
 		totalMessagesNumber = PUB_TOTAL_MESSAGES_NUMBER; //Integer.valueOf(projectProperties.getProperties().getProperty("pub.total.number"));
 	}
@@ -33,9 +36,6 @@ public class PublicationSpout extends BaseRichSpout {
 	@Override
 	public void nextTuple() {
 		for (List<Pair> publication : publications) {
-			if (totalMessagesNumber > 0) {
-				collector.emit(new Values(GeneralConstants.INDEX_IDENTIFIER_KEYWORD + publications.indexOf(publication)));
-			}
 
 			for(Pair parameter : publication) {
 				collector.emit(new Values(parameter.getLeft()));
@@ -67,34 +67,20 @@ public class PublicationSpout extends BaseRichSpout {
 		return outputPublications;
 	}
 
-	private List<List<Pair>> populatePublicationsMap() {
+	private List<List<Pair>> generatePublicationsMap() {
 		List<List<Pair>> publications = new ArrayList<>();
 
-		List<Pair> publication0 = new ArrayList<>();
-		List<Pair> publication1 = new ArrayList<>();
-		List<Pair> publication2= new ArrayList<>();
+		for (int i = 0; i < PUB_TOTAL_MESSAGES_NUMBER; i++) {
+			List<Pair> publication = new ArrayList<>();
 
-		publication0.add(Pair.of("company", "Sika"));
-		publication0.add(Pair.of("value", "90.0"));
-		publication0.add(Pair.of("drop", "10.0"));
-		publication0.add(Pair.of("variation", "0.73"));
-		publication0.add(Pair.of("date", "2.02.2018"));
+			publication.add(Pair.of(COMPANY_FIELD.getCode(), generateFieldFromArray(COMPANIES)));
+            publication.add(Pair.of(VALUE_FIELD.getCode(), generateDoubleFromRange(PUB_VALUE_MIN_RANGE, PUB_VALUE_MAX_RANGE).toString()));
+            publication.add(Pair.of(DROP_FIELD.getCode(), generateDoubleFromRange(PUB_DROP_MIN_RANGE, PUB_DROP_MAX_RANGE).toString()));
+            publication.add(Pair.of(VARIATION_FIELD.getCode(), generateDoubleFromRange(PUB_VARIATION_MIN_RANGE, PUB_VARIATION_MAX_RANGE).toString()));
+			publication.add(Pair.of(DATE_FIELD.getCode(), generateFieldFromArray(DATES)));
 
-		publication1.add(Pair.of("company", "Apple"));
-		publication1.add(Pair.of("value", "2400.0"));
-		publication1.add(Pair.of("drop", "5.0"));
-		publication1.add(Pair.of("variation", "0.2"));
-		publication1.add(Pair.of("date", "8.03.2018"));
-
-		publication2.add(Pair.of("company", "Tesla"));
-		publication2.add(Pair.of("value", "1200.0"));
-		publication2.add(Pair.of("drop", "2.0"));
-		publication2.add(Pair.of("variation", "0.1"));
-		publication2.add(Pair.of("date", "9.02.2017"));
-
-		publications.add(publication0);
-		publications.add(publication1);
-		publications.add(publication2);
+			publications.add(publication);
+		}
 
 		return publications;
 	}

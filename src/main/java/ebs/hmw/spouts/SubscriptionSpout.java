@@ -1,7 +1,7 @@
 package ebs.hmw.spouts;
 
 import ebs.hmw.model.SubModel;
-import ebs.hmw.util.GeneralConstants;
+import ebs.hmw.util.PubSubGeneratorConfiguration;
 import ebs.hmw.util.TopoConverter;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.storm.spout.SpoutOutputCollector;
@@ -15,7 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static ebs.hmw.util.ConfigurationConstants.SUB_TOTAL_MESSAGES_NUMBER;
+import static ebs.hmw.util.PubSubGeneratorConfiguration.*;
+import static ebs.hmw.util.FieldsGenerator.generateFieldFromArray;
+import static ebs.hmw.util.FieldsGenerator.generateDoubleFromRange;
+import static ebs.hmw.util.GeneralConstants.*;
+import static ebs.hmw.util.SubFieldsEnum.COMPANY_FIELD;
+import static ebs.hmw.util.SubFieldsEnum.VALUE_FIELD;
+import static ebs.hmw.util.SubFieldsEnum.VARIATION_FIELD;
 
 public class SubscriptionSpout extends BaseRichSpout {
 
@@ -26,7 +32,7 @@ public class SubscriptionSpout extends BaseRichSpout {
     @Override
     public void open(Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
         this.collector = spoutOutputCollector;
-        subscriptions = convertFieldsToType(populateSubscriptionsMap());
+        subscriptions = generateSubscriptionsMap();
 //        ProjectProperties projectProperties = ProjectProperties.getInstance();
         totalMessagesNumber = SUB_TOTAL_MESSAGES_NUMBER; //Integer.valueOf(projectProperties.getProperties().getProperty("pub.total.number"));
     }
@@ -34,21 +40,17 @@ public class SubscriptionSpout extends BaseRichSpout {
     @Override
     public void nextTuple() {
         for (List<SubModel> subscription : subscriptions) {
-            if (totalMessagesNumber > 0) {
-                collector.emit(new Values(subscriptions.indexOf(subscription)));
-            }
-
             for (SubModel model : subscription) {
                 collector.emit(new Values(model.getFieldValue().getLeft()));
-                collector.emit(new Values(model.getOperator()));
                 collector.emit(new Values(model.getFieldValue().getRight()));
+                collector.emit(new Values(model.getOperator()));
             }
         }
     }
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-        outputFieldsDeclarer.declare(new Fields(GeneralConstants.RAW_SUBSCRIPTIONS_KEYWD));
+        outputFieldsDeclarer.declare(new Fields(RAW_SUBSCRIPTIONS_KEYWD));
     }
 
     private List<List<SubModel>> convertFieldsToType(List<List<SubModel>> inputSubs) {
@@ -74,25 +76,20 @@ public class SubscriptionSpout extends BaseRichSpout {
         return outputSubs;
     }
 
-    private List<List<SubModel>> populateSubscriptionsMap() {
+    private List<List<SubModel>> generateSubscriptionsMap() {
         List<List<SubModel>> subscriptionsList = new ArrayList<>();
 
-        List<SubModel> subscritpion0 = new ArrayList<>();
-        List<SubModel> subscritpion1 = new ArrayList<>();
-        List<SubModel> subscritpion2 = new ArrayList<>();
+        for (int i = 0; i < PubSubGeneratorConfiguration.SUB_TOTAL_MESSAGES_NUMBER; i++) {
+            List<SubModel> subscription = new ArrayList<>();
 
-        subscritpion0.add(new SubModel(Pair.of("company", "Google"), "="));
-        subscritpion0.add(new SubModel(Pair.of("value", "90"), ">="));
-        subscritpion0.add(new SubModel(Pair.of("variation", "0.8"), "<"));
+            subscription.add(new SubModel(Pair.of(COMPANY_FIELD.getCode(), generateFieldFromArray(COMPANIES)), "="));
+            subscription.add(new SubModel(Pair.of(VALUE_FIELD.getCode(),
+                    generateDoubleFromRange(SUB_VALUE_MIN_RANGE, SUB_VALUE_MAX_RANGE).toString()), ">="));
+            subscription.add(new SubModel(Pair.of(VARIATION_FIELD.getCode(),
+                    generateDoubleFromRange(SUB_VARIATION_MIN_RANGE, SUB_VARIATION_MAX_RANGE).toString()), "<"));
 
-        subscritpion1.add(new SubModel(Pair.of("company", "Apple"), "="));
-        subscritpion1.add(new SubModel(Pair.of("variation", "5"), "<"));
-
-        subscritpion2.add(new SubModel(Pair.of("value", "5000"), ">="));
-
-        subscriptionsList.add(subscritpion0);
-        subscriptionsList.add(subscritpion1);
-        subscriptionsList.add(subscritpion2);
+            subscriptionsList.add(subscription);
+        }
 
         return subscriptionsList;
     }
