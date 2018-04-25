@@ -6,30 +6,33 @@ import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.topology.base.BaseRichBolt;
 import org.apache.storm.tuple.Tuple;
 
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class PrintingHelperBolt extends BaseRichBolt {
 
-	private OutputCollector collector;
 	private List<String> incomingWords;
 	private String incomingFlux;
+	private String outputFile;
 
-	public PrintingHelperBolt(String incomingFlux) {
+	public PrintingHelperBolt(String incomingFlux, String outputFile) {
 		this.incomingFlux = incomingFlux;
+		this.outputFile = outputFile;
 	}
 
 	@Override
 	public void prepare(Map map, TopologyContext topologyContext, OutputCollector collector) {
-		this.collector = collector;
 		incomingWords = new ArrayList<>();
 	}
 
 	@Override
 	public void execute(Tuple tuple) {
-		String word = tuple.getStringByField(incomingFlux);
-		incomingWords.add(word);
+		incomingWords.add(tuple.getStringByField(incomingFlux));
 	}
 
 	@Override
@@ -37,10 +40,16 @@ public class PrintingHelperBolt extends BaseRichBolt {
 	}
 
 	public void cleanup() {
-		System.out.println("results");
 
-		for (String word : incomingWords) {
-			System.out.println(word);
+	    try {
+			FileWriter writer = new FileWriter(outputFile);
+			for (String word : incomingWords) {
+				writer.write(word + " ");
+				writer.flush();
+			}
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 }

@@ -6,7 +6,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class FieldsGenerator {
 
 
-    public static String generateFieldFromArray(String[] array) {
+    public static String generateValueFromArray(String[] array) {
         int randomNum = ThreadLocalRandom.current().nextInt(0, array.length);
 
         return array[randomNum];

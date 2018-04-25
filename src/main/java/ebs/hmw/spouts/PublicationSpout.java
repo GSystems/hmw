@@ -73,11 +73,11 @@ public class PublicationSpout extends BaseRichSpout {
 		for (int i = 0; i < PUB_TOTAL_MESSAGES_NUMBER; i++) {
 			List<Pair> publication = new ArrayList<>();
 
-			publication.add(Pair.of(COMPANY_FIELD.getCode(), generateFieldFromArray(COMPANIES)));
+			publication.add(Pair.of(COMPANY_FIELD.getCode(), generateValueFromArray(COMPANIES)));
             publication.add(Pair.of(VALUE_FIELD.getCode(), generateDoubleFromRange(PUB_VALUE_MIN_RANGE, PUB_VALUE_MAX_RANGE).toString()));
             publication.add(Pair.of(DROP_FIELD.getCode(), generateDoubleFromRange(PUB_DROP_MIN_RANGE, PUB_DROP_MAX_RANGE).toString()));
             publication.add(Pair.of(VARIATION_FIELD.getCode(), generateDoubleFromRange(PUB_VARIATION_MIN_RANGE, PUB_VARIATION_MAX_RANGE).toString()));
-			publication.add(Pair.of(DATE_FIELD.getCode(), generateFieldFromArray(DATES)));
+			publication.add(Pair.of(DATE_FIELD.getCode(), generateValueFromArray(DATES)));
 
 			publications.add(publication);
 		}

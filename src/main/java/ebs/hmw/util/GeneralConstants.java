@@ -23,4 +23,5 @@ public class GeneralConstants {
 
     public static final String[] COMPANIES = {"LG", "Apple", "Asus", "Amazon", "AOL"};
     public static final String[] DATES = {"30.05.2010", "15.04.2011", "3.03.2015", "8.07.2016", "20.12.2017", "18.11.2017", "6.01.2018"};
+    public static final String[] OPERATORS = {"<", "<=", ">=", ">"};
 }

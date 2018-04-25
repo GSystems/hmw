@@ -2,6 +2,7 @@ package ebs.hmw.spouts;
 
 import ebs.hmw.model.SubModel;
 import ebs.hmw.util.PubSubGeneratorConfiguration;
+import ebs.hmw.util.SubFieldsEnum;
 import ebs.hmw.util.TopoConverter;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.storm.spout.SpoutOutputCollector;
@@ -11,12 +12,10 @@ import org.apache.storm.topology.base.BaseRichSpout;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static ebs.hmw.util.PubSubGeneratorConfiguration.*;
-import static ebs.hmw.util.FieldsGenerator.generateFieldFromArray;
+import static ebs.hmw.util.FieldsGenerator.generateValueFromArray;
 import static ebs.hmw.util.FieldsGenerator.generateDoubleFromRange;
 import static ebs.hmw.util.GeneralConstants.*;
 import static ebs.hmw.util.SubFieldsEnum.COMPANY_FIELD;
@@ -27,14 +26,14 @@ public class SubscriptionSpout extends BaseRichSpout {
 
     private SpoutOutputCollector collector;
     private List<List<SubModel>> subscriptions;
-    private int totalMessagesNumber;
+    private int presenceOfEqualsOperator = 0;
+    private int allOperatorsCount = 0;
 
     @Override
     public void open(Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
         this.collector = spoutOutputCollector;
         subscriptions = generateSubscriptionsMap();
 //        ProjectProperties projectProperties = ProjectProperties.getInstance();
-        totalMessagesNumber = SUB_TOTAL_MESSAGES_NUMBER; //Integer.valueOf(projectProperties.getProperties().getProperty("pub.total.number"));
     }
 
     @Override
@@ -78,19 +77,87 @@ public class SubscriptionSpout extends BaseRichSpout {
 
     private List<List<SubModel>> generateSubscriptionsMap() {
         List<List<SubModel>> subscriptionsList = new ArrayList<>();
+        Map<SubFieldsEnum, Integer> presenceOfFileds = initializePresenceOfFieldsMap();
 
         for (int i = 0; i < PubSubGeneratorConfiguration.SUB_TOTAL_MESSAGES_NUMBER; i++) {
             List<SubModel> subscription = new ArrayList<>();
 
-            subscription.add(new SubModel(Pair.of(COMPANY_FIELD.getCode(), generateFieldFromArray(COMPANIES)), "="));
-            subscription.add(new SubModel(Pair.of(VALUE_FIELD.getCode(),
-                    generateDoubleFromRange(SUB_VALUE_MIN_RANGE, SUB_VALUE_MAX_RANGE).toString()), ">="));
-            subscription.add(new SubModel(Pair.of(VARIATION_FIELD.getCode(),
-                    generateDoubleFromRange(SUB_VARIATION_MIN_RANGE, SUB_VARIATION_MAX_RANGE).toString()), "<"));
+            if (fieldForAdd(COMPANY_FIELD, presenceOfFileds)) {
+                subscription.add(new SubModel(Pair.of(COMPANY_FIELD.getCode(),
+                        generateValueFromArray(COMPANIES)), addOperator()));
+
+                Integer oldCountOfField = presenceOfFileds.get(COMPANY_FIELD);
+                presenceOfFileds.put(COMPANY_FIELD, oldCountOfField++);
+            }
+
+            if (fieldForAdd(VALUE_FIELD, presenceOfFileds)) {
+                subscription.add(new SubModel(Pair.of(VALUE_FIELD.getCode(),
+                        generateDoubleFromRange(SUB_VALUE_MIN_RANGE, SUB_VALUE_MAX_RANGE).toString()), addOperator()));
+
+                Integer oldCount = presenceOfFileds.get(COMPANY_FIELD);
+                presenceOfFileds.put(VALUE_FIELD, oldCount++);
+            }
+
+            if (fieldForAdd(VARIATION_FIELD, presenceOfFileds)) {
+                subscription.add(new SubModel(Pair.of(VARIATION_FIELD.getCode(),
+                        generateDoubleFromRange(SUB_VARIATION_MIN_RANGE, SUB_VARIATION_MAX_RANGE).toString()), addOperator()));
+
+                Integer oldCount = presenceOfFileds.get(COMPANY_FIELD);
+                presenceOfFileds.put(VARIATION_FIELD, oldCount++);
+            }
 
             subscriptionsList.add(subscription);
         }
 
         return subscriptionsList;
     }
+
+    private String addOperator() {
+        String operator;
+
+        Double actualEqualsPerc = 0.0;
+
+        if (allOperatorsCount > 0) {
+            actualEqualsPerc = Double.valueOf(presenceOfEqualsOperator / allOperatorsCount * 100);
+        }
+
+        if (actualEqualsPerc <= SUB_EQUALS_OPERATOR_PRESENCE) {
+            operator = "=";
+            presenceOfEqualsOperator++;
+        } else {
+            operator = generateValueFromArray(OPERATORS);
+        }
+
+        allOperatorsCount++;
+
+        return operator;
+    }
+
+    private boolean fieldForAdd(SubFieldsEnum field, Map<SubFieldsEnum, Integer> presenceOfFileds) {
+
+        Integer totalNoOfFields = presenceOfFileds.get(COMPANY_FIELD) + presenceOfFileds.get(VALUE_FIELD) + presenceOfFileds.get(VARIATION_FIELD);
+
+        Double actualFieldPresencePerc = 0.0;
+
+        if (totalNoOfFields > 0) {
+            actualFieldPresencePerc = Double.valueOf(presenceOfFileds.get(field) / totalNoOfFields * 100);
+        }
+
+        if (actualFieldPresencePerc <= field.getPerc()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private Map<SubFieldsEnum, Integer> initializePresenceOfFieldsMap() {
+        Map<SubFieldsEnum, Integer> presenceOfFileds = new HashMap<>();
+
+        presenceOfFileds.put(COMPANY_FIELD, 0);
+        presenceOfFileds.put(VALUE_FIELD, 0);
+        presenceOfFileds.put(VARIATION_FIELD, 0);
+
+        return presenceOfFileds;
+    }
+
 }
