@@ -28,7 +28,7 @@ public class PublicationSpout extends BaseRichSpout {
 	@Override
 	public void open(Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
 		this.collector = spoutOutputCollector;
-		publications = generatePublicationsMap();
+		publications = generatePublications();
 //		ProjectProperties projectProperties = ProjectProperties.getInstance();
 		totalMessagesNumber = PUB_TOTAL_MESSAGES_NUMBER; //Integer.valueOf(projectProperties.getProperties().getProperty("pub.total.number"));
 	}
@@ -40,7 +40,9 @@ public class PublicationSpout extends BaseRichSpout {
 			for(Pair parameter : publication) {
 				collector.emit(new Values(parameter.getLeft()));
 				collector.emit(new Values(parameter.getRight()));
+				collector.emit(new Values("\n"));
 			}
+			collector.emit(new Values("\n"));
 		}
 	}
 
@@ -67,7 +69,7 @@ public class PublicationSpout extends BaseRichSpout {
 		return outputPublications;
 	}
 
-	private List<List<Pair>> generatePublicationsMap() {
+	private List<List<Pair>> generatePublications() {
 		List<List<Pair>> publications = new ArrayList<>();
 
 		for (int i = 0; i < PUB_TOTAL_MESSAGES_NUMBER; i++) {

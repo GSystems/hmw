@@ -20,16 +20,16 @@ public class HmwApp {
 
 		TopologyBuilder builder = new TopologyBuilder();
 
-//		PublicationSpout rawPublications = new PublicationSpout();
+		PublicationSpout rawPublications = new PublicationSpout();
 		SubscriptionSpout rawSubscriptions = new SubscriptionSpout();
 
-//		PrintingHelperBolt pubPrinterBolt = new PrintingHelperBolt(RAW_PUBLICATIONS_KEYWD);
+		PrintingHelperBolt pubPrinterBolt = new PrintingHelperBolt(RAW_PUBLICATIONS_KEYWD, "pubs.txt");
 		PrintingHelperBolt subPrinterBolt = new PrintingHelperBolt(RAW_SUBSCRIPTIONS_KEYWD, "subs.txt");
 
-//		builder.setSpout(RAW_PUB_ID, rawPublications);
+		builder.setSpout(RAW_PUB_ID, rawPublications);
 		builder.setSpout(RAW_SUB_ID, rawSubscriptions);
 
-//		builder.setBolt(RAW_PUB_PRINTER_BOLT_ID, pubPrinterBolt).shuffleGrouping(RAW_PUB_ID);
+		builder.setBolt(RAW_PUB_PRINTER_BOLT_ID, pubPrinterBolt).shuffleGrouping(RAW_PUB_ID);
 		builder.setBolt(RAW_SUB_PRINTER_BOLT_ID, subPrinterBolt).shuffleGrouping(RAW_SUB_ID);
 
 		Config config = new Config();
