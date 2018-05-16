@@ -17,20 +17,19 @@ import java.util.Map;
 import static ebs.hmw.util.FieldsGenerator.*;
 import static ebs.hmw.util.GeneralConstants.*;
 import static ebs.hmw.util.PubFieldsEnum.*;
-import static ebs.hmw.util.PubSubGeneratorConfiguration.*;
+import static ebs.hmw.util.PubSubGenConf.*;
 
 public class PublicationSpout extends BaseRichSpout {
 
 	private SpoutOutputCollector collector;
 	private List<List<Pair>> publications;
-	private int totalMessagesNumber;
 
 	@Override
 	public void open(Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
 		this.collector = spoutOutputCollector;
 		publications = generatePublications();
 //		ProjectProperties projectProperties = ProjectProperties.getInstance();
-		totalMessagesNumber = PUB_TOTAL_MESSAGES_NUMBER; //Integer.valueOf(projectProperties.getProperties().getProperty("pub.total.number"));
+		//Integer.valueOf(projectProperties.getProperties().getProperty("pub.total.number"));
 	}
 
 	@Override

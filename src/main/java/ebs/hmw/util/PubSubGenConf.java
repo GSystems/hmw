@@ -1,6 +1,6 @@
 package ebs.hmw.util;
 
-public class PubSubGeneratorConfiguration {
+public class PubSubGenConf {
 
     public static final Integer PUB_TOTAL_MESSAGES_NUMBER = 10;
     public static final Integer SUB_TOTAL_MESSAGES_NUMBER = 10;

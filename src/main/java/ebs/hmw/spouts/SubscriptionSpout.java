@@ -1,7 +1,7 @@
 package ebs.hmw.spouts;
 
 import ebs.hmw.model.SubModel;
-import ebs.hmw.util.PubSubGeneratorConfiguration;
+import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.SubFieldsEnum;
 import ebs.hmw.util.TopoConverter;
 import org.apache.commons.lang3.tuple.Pair;
@@ -14,7 +14,7 @@ import org.apache.storm.tuple.Values;
 
 import java.util.*;
 
-import static ebs.hmw.util.PubSubGeneratorConfiguration.*;
+import static ebs.hmw.util.PubSubGenConf.*;
 import static ebs.hmw.util.FieldsGenerator.generateValueFromArray;
 import static ebs.hmw.util.FieldsGenerator.generateDoubleFromRange;
 import static ebs.hmw.util.GeneralConstants.*;
@@ -59,7 +59,7 @@ public class SubscriptionSpout extends BaseRichSpout {
         List<List<SubModel>> subscriptionsList = new ArrayList<>();
         Map<SubFieldsEnum, Integer> presenceOfFileds = initializePresenceOfFieldsMap();
 
-        for (int i = 0; i < PubSubGeneratorConfiguration.SUB_TOTAL_MESSAGES_NUMBER; i++) {
+        for (int i = 0; i < PubSubGenConf.SUB_TOTAL_MESSAGES_NUMBER; i++) {
             List<SubModel> subscription = new ArrayList<>();
 
             if (fieldForAdd(COMPANY_FIELD, presenceOfFileds)) {
