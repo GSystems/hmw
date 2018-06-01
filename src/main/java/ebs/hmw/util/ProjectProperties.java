@@ -22,8 +22,6 @@ public class ProjectProperties {
             input = loader.getResourceAsStream(filename);
             properties.load(input);
 
-//            properties.load(getClass().getClassLoader().getResourceAsStream(filename));
-
             if (input == null) {
                 System.out.println("Sorry, unable to find " + filename);
             }

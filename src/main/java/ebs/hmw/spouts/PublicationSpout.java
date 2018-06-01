@@ -11,32 +11,36 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static ebs.hmw.util.FieldsGenerator.*;
-import static ebs.hmw.util.GeneralConstants.*;
+import static ebs.hmw.util.FieldsGenerator.generateDoubleFromRange;
+import static ebs.hmw.util.FieldsGenerator.generateValueFromArray;
+import static ebs.hmw.util.GeneralConstants.COMPANIES;
+import static ebs.hmw.util.GeneralConstants.DATES;
 import static ebs.hmw.util.PubFieldsEnum.*;
 import static ebs.hmw.util.PubSubGenConf.*;
 
 public class PublicationSpout extends BaseRichSpout {
 
 	private SpoutOutputCollector collector;
-	private List<List<Pair>> publications;
+	private Map<String, List<Pair>> publications;
 
 	@Override
 	public void open(Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
 		this.collector = spoutOutputCollector;
 		publications = generatePublications();
-//		ProjectProperties projectProperties = ProjectProperties.getInstance();
-		//Integer.valueOf(projectProperties.getProperties().getProperty("pub.total.number"));
 	}
 
 	@Override
 	public void nextTuple() {
-		for (List<Pair> publication : publications) {
+		for (Map.Entry<String, List<Pair>> publication : publications.entrySet()) {
 
-			for(Pair parameter : publication) {
+			collector.emit(new Values(publication.getKey()));
+
+			for(Pair parameter : publication.getValue()) {
+
 				collector.emit(new Values(parameter.getLeft()));
 				collector.emit(new Values(parameter.getRight()));
 				collector.emit(new Values("\n"));
@@ -68,10 +72,10 @@ public class PublicationSpout extends BaseRichSpout {
 		return outputPublications;
 	}
 
-	private List<List<Pair>> generatePublications() {
-		List<List<Pair>> publications = new ArrayList<>();
+	private Map<String, List<Pair>> generatePublications() {
+		Map<String, List<Pair>> publications = new HashMap<>();
 
-		for (int i = 0; i < PUB_TOTAL_MESSAGES_NUMBER; i++) {
+		for (long i = 0; i < PUB_TOTAL_MESSAGES_NUMBER; i++) {
 			List<Pair> publication = new ArrayList<>();
 
 			publication.add(Pair.of(COMPANY_FIELD.getCode(), generateValueFromArray(COMPANIES)));
@@ -80,7 +84,9 @@ public class PublicationSpout extends BaseRichSpout {
             publication.add(Pair.of(VARIATION_FIELD.getCode(), generateDoubleFromRange(PUB_VARIATION_MIN_RANGE, PUB_VARIATION_MAX_RANGE).toString()));
 			publication.add(Pair.of(DATE_FIELD.getCode(), generateValueFromArray(DATES)));
 
-			publications.add(publication);
+			String id = "id = " + i + "\n";
+
+			publications.put(id, publication);
 		}
 
 		return publications;
