@@ -1,7 +1,7 @@
 package ebs.hmw.spouts;
 
 import ebs.hmw.model.SubModel;
-import ebs.hmw.util.PubSubGeneratorConfiguration;
+import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.SubFieldsEnum;
 import ebs.hmw.util.TopoConverter;
 import org.apache.commons.lang3.tuple.Pair;
@@ -12,20 +12,21 @@ import org.apache.storm.topology.base.BaseRichSpout;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import static ebs.hmw.util.PubSubGeneratorConfiguration.*;
-import static ebs.hmw.util.FieldsGenerator.generateValueFromArray;
 import static ebs.hmw.util.FieldsGenerator.generateDoubleFromRange;
+import static ebs.hmw.util.FieldsGenerator.generateValueFromArray;
 import static ebs.hmw.util.GeneralConstants.*;
-import static ebs.hmw.util.SubFieldsEnum.COMPANY_FIELD;
-import static ebs.hmw.util.SubFieldsEnum.VALUE_FIELD;
-import static ebs.hmw.util.SubFieldsEnum.VARIATION_FIELD;
+import static ebs.hmw.util.PubSubGenConf.*;
+import static ebs.hmw.util.SubFieldsEnum.*;
 
 public class SubscriptionSpout extends BaseRichSpout {
 
     private SpoutOutputCollector collector;
-    private List<List<SubModel>> subscriptions;
+    private Map<String, List<SubModel>> subscriptions;
     private int presenceOfEqualsOperator = 0;
     private int allOperatorsCount = 0;
 
@@ -33,14 +34,16 @@ public class SubscriptionSpout extends BaseRichSpout {
     public void open(Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
         this.collector = spoutOutputCollector;
         subscriptions = generateSubscriptions();
-//        ProjectProperties projectProperties = ProjectProperties.getInstance();
     }
 
     @Override
     public void nextTuple() {
 
-        for (List<SubModel> subscription : subscriptions) {
-            for (SubModel model : subscription) {
+        for (Map.Entry<String, List<SubModel>> subscription : subscriptions.entrySet()) {
+
+            collector.emit(new Values(subscription.getKey()));
+
+            for (SubModel model : subscription.getValue()) {
                 collector.emit(new Values(model.getFieldValue().getLeft()));
                 collector.emit(new Values(model.getOperator()));
                 collector.emit(new Values(model.getFieldValue().getRight()));
@@ -55,11 +58,12 @@ public class SubscriptionSpout extends BaseRichSpout {
         outputFieldsDeclarer.declare(new Fields(RAW_SUBSCRIPTIONS_KEYWD));
     }
 
-    private List<List<SubModel>> generateSubscriptions() {
-        List<List<SubModel>> subscriptionsList = new ArrayList<>();
+    private Map<String, List<SubModel>> generateSubscriptions() {
+        Map<String, List<SubModel>> subscriptionsList = new HashMap<>();
+
         Map<SubFieldsEnum, Integer> presenceOfFileds = initializePresenceOfFieldsMap();
 
-        for (int i = 0; i < PubSubGeneratorConfiguration.SUB_TOTAL_MESSAGES_NUMBER; i++) {
+        for (long i = 0; i < PubSubGenConf.SUB_TOTAL_MESSAGES_NUMBER; i++) {
             List<SubModel> subscription = new ArrayList<>();
 
             if (fieldForAdd(COMPANY_FIELD, presenceOfFileds)) {
@@ -88,7 +92,9 @@ public class SubscriptionSpout extends BaseRichSpout {
                 presenceOfFileds.put(VARIATION_FIELD, ++oldCountOfField);
             }
 
-            subscriptionsList.add(subscription);
+            String id = "id = " + i + "\n";
+
+            subscriptionsList.put(id, subscription);
         }
 
         return subscriptionsList;
@@ -127,9 +133,9 @@ public class SubscriptionSpout extends BaseRichSpout {
 
         if (actualFieldPresencePerc <= field.getPerc()) {
             return true;
-        } else {
-            return false;
         }
+
+        return false;
     }
 
     private Map<SubFieldsEnum, Integer> initializePresenceOfFieldsMap() {

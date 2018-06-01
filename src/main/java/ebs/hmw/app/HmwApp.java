@@ -1,8 +1,8 @@
 package ebs.hmw.app;
 
 import ebs.hmw.spouts.PublicationSpout;
-import ebs.hmw.util.PrintingHelperBolt;
 import ebs.hmw.spouts.SubscriptionSpout;
+import ebs.hmw.util.PrintingHelperBolt;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.topology.TopologyBuilder;
@@ -14,9 +14,6 @@ public class HmwApp {
 	private static final String CURRENT_TOPOLOGY = "test_topology";
 
 	public static void main(String[] args) {
-
-//		ProjectProperties projectProperties = ProjectProperties.getInstance();
-//		projectProperties.loadProperties();
 
 		TopologyBuilder builder = new TopologyBuilder();
 
@@ -38,7 +35,7 @@ public class HmwApp {
 		cluster.submitTopology(CURRENT_TOPOLOGY, config, builder.createTopology());
 
 		try {
-			Thread.sleep(10000);
+			Thread.sleep(40000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}

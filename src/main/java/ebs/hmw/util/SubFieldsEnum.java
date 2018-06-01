@@ -1,6 +1,6 @@
 package ebs.hmw.util;
 
-import static ebs.hmw.util.PubSubGeneratorConfiguration.*;
+import static ebs.hmw.util.PubSubGenConf.*;
 
 public enum SubFieldsEnum {
 

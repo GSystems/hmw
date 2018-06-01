@@ -3,3 +3,7 @@ logs
 target
 
 *.iml
+
+.DS_Store
+pubs.txt
+subs.txt
