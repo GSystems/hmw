@@ -12,6 +12,7 @@ import org.apache.storm.topology.base.BaseRichSpout;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
 
+import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,150 +26,208 @@ import static ebs.hmw.util.SubFieldsEnum.*;
 
 public class SubscriptionSpout extends BaseRichSpout {
 
-    private SpoutOutputCollector collector;
-    private Map<String, List<SubModel>> subscriptions;
-    private int presenceOfEqualsOperator = 0;
-    private int allOperatorsCount = 0;
+	private SpoutOutputCollector collector;
+	private int presenceOfEqualsOperator = 0;
+	private int allOperatorsCount = 0;
+	private boolean completed = false;
+	private FileReader fileReader;
 
-    @Override
-    public void open(Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
-        this.collector = spoutOutputCollector;
-        subscriptions = generateSubscriptions();
-    }
+	@Override
+	public void open(Map configs, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
+		this.collector = spoutOutputCollector;
+		saveSubsriptionsToFile(configs);
+		openSubsriptionsFile(configs);
+	}
 
-    @Override
-    public void nextTuple() {
+	@Override
+	public void nextTuple() {
 
-        for (Map.Entry<String, List<SubModel>> subscription : subscriptions.entrySet()) {
+		if (completed) {
+			try {
+				Thread.sleep(1);
+			} catch (InterruptedException e) {
+				// do nothing
+			}
+			return;
+		}
 
-            collector.emit(new Values(subscription.getKey()));
+		try {
+			BufferedReader reader = new BufferedReader(fileReader);
 
-            for (SubModel model : subscription.getValue()) {
-                collector.emit(new Values(model.getFieldValue().getLeft()));
-                collector.emit(new Values(model.getOperator()));
-                collector.emit(new Values(model.getFieldValue().getRight()));
-                collector.emit(new Values("\n"));
-            }
-            collector.emit(new Values("\n"));
-        }
-    }
+			String line;
+			while ((line = reader.readLine()) != null) {
+				collector.emit(new Values(line));
+			}
 
-    @Override
-    public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-        outputFieldsDeclarer.declare(new Fields(RAW_SUBSCRIPTIONS_KEYWD));
-    }
+			reader.close();
 
-    private Map<String, List<SubModel>> generateSubscriptions() {
-        Map<String, List<SubModel>> subscriptionsList = new HashMap<>();
+		} catch (Exception e) {
+			throw new RuntimeException("Error reading tuple ", e);
+		} finally {
+			completed = true;
+		}
+	}
 
-        Map<SubFieldsEnum, Integer> presenceOfFileds = initializePresenceOfFieldsMap();
+	@Override
+	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
+		outputFieldsDeclarer.declare(new Fields(PRINTER_INPUT_KEYWD));
+	}
 
-        for (long i = 0; i < PubSubGenConf.SUB_TOTAL_MESSAGES_NUMBER; i++) {
-            List<SubModel> subscription = new ArrayList<>();
+	private void saveSubsriptionsToFile(Map configs) {
+		Map<String, List<SubModel>> subscriptions = generateSubscriptions();
 
-            if (fieldForAdd(COMPANY_FIELD, presenceOfFileds)) {
-                subscription.add(new SubModel(Pair.of(COMPANY_FIELD.getCode(),
-                        generateValueFromArray(COMPANIES)), "="));
+		try {
+			FileWriter writer = new FileWriter(configs.get(SUBS_FILE_PARAM).toString());
 
-                Integer oldCountOfField = presenceOfFileds.get(COMPANY_FIELD);
-                presenceOfFileds.put(COMPANY_FIELD, ++oldCountOfField);
-                presenceOfEqualsOperator++;
-                allOperatorsCount++;
-            }
+			for (Map.Entry<String, List<SubModel>> subscription : subscriptions.entrySet()) {
+				int counter = 1;
 
-            if (fieldForAdd(VALUE_FIELD, presenceOfFileds)) {
-                subscription.add(new SubModel(Pair.of(VALUE_FIELD.getCode(),
-                        generateDoubleFromRange(SUB_VALUE_MIN_RANGE, SUB_VALUE_MAX_RANGE).toString()), addOperator()));
+				writer.write("{(id," + subscription.getKey() + ");");
 
-                Integer oldCountOfField = presenceOfFileds.get(VALUE_FIELD);
-                presenceOfFileds.put(VALUE_FIELD, ++oldCountOfField);
-            }
+				for (SubModel model : subscription.getValue()) {
+					writer.write("(");
+					writer.write(model.getFieldValue().getLeft());
+					writer.write(",");
+					writer.write(model.getOperator());
+					writer.write(",");
+					writer.write(model.getFieldValue().getRight());
 
-            if (fieldForAdd(VARIATION_FIELD, presenceOfFileds)) {
-                subscription.add(new SubModel(Pair.of(VARIATION_FIELD.getCode(),
-                        generateDoubleFromRange(SUB_VARIATION_MIN_RANGE, SUB_VARIATION_MAX_RANGE).toString()), addOperator()));
+					if (counter == subscription.getValue().size()) {
+						writer.write(")");
+					} else {
+						writer.write(");");
+					}
 
-                Integer oldCountOfField = presenceOfFileds.get(VARIATION_FIELD);
-                presenceOfFileds.put(VARIATION_FIELD, ++oldCountOfField);
-            }
+					counter++;
+				}
 
-            String id = "id = " + i + "\n";
+				writer.write("}\n");
+			}
 
-            subscriptionsList.put(id, subscription);
-        }
+			writer.close();
 
-        return subscriptionsList;
-    }
+		} catch (IOException e) {
+			throw new RuntimeException("Error writing file [" + configs.get(SUBS_FILE_PARAM) + "]");
+		}
+	}
 
-    private String addOperator() {
-        String operator;
-        Double actualEqualsPerc = 0.0;
+	private void openSubsriptionsFile(Map configs) {
+		try {
+			fileReader = new FileReader(configs.get(SUBS_FILE_PARAM).toString());
 
-        if (allOperatorsCount > 0) {
-            actualEqualsPerc = Double.valueOf(presenceOfEqualsOperator) / Double.valueOf(allOperatorsCount) * 100.0;
-        }
+		} catch (FileNotFoundException e) {
+			throw new RuntimeException("Error reading file [" + configs.get(SUBS_FILE_PARAM) + "]");
+		}
+	}
 
-        if (actualEqualsPerc <= SUB_EQUALS_OPERATOR_PRESENCE) {
-            operator = "=";
-            presenceOfEqualsOperator++;
-        } else {
-            operator = generateValueFromArray(OPERATORS);
-        }
+	private Map<String, List<SubModel>> generateSubscriptions() {
+		Map<String, List<SubModel>> subscriptionsList = new HashMap<>();
 
-        allOperatorsCount++;
+		Map<SubFieldsEnum, Integer> presenceOfFileds = initializePresenceOfFieldsMap();
 
-        return operator;
-    }
+		for (long i = 0; i < PubSubGenConf.SUB_TOTAL_MESSAGES_NUMBER; i++) {
+			List<SubModel> subscription = new ArrayList<>();
 
-    private boolean fieldForAdd(SubFieldsEnum field, Map<SubFieldsEnum, Integer> presenceOfFileds) {
+			if (fieldForAdd(COMPANY_FIELD, presenceOfFileds)) {
+				subscription.add(new SubModel(Pair.of(COMPANY_FIELD.getCode(),
+						generateValueFromArray(COMPANIES)), "="));
 
-        Double totalNoOfFields = Double.valueOf(presenceOfFileds.get(COMPANY_FIELD) +
-                presenceOfFileds.get(VALUE_FIELD) + presenceOfFileds.get(VARIATION_FIELD));
+				Integer oldCountOfField = presenceOfFileds.get(COMPANY_FIELD);
+				presenceOfFileds.put(COMPANY_FIELD, ++oldCountOfField);
+				presenceOfEqualsOperator++;
+				allOperatorsCount++;
+			}
 
-        Double actualFieldPresencePerc = 0.0;
+			if (fieldForAdd(VALUE_FIELD, presenceOfFileds)) {
+				subscription.add(new SubModel(Pair.of(VALUE_FIELD.getCode(),
+						generateDoubleFromRange(SUB_VALUE_MIN_RANGE, SUB_VALUE_MAX_RANGE).toString()), addOperator()));
 
-        if (totalNoOfFields > 0) {
-            actualFieldPresencePerc = presenceOfFileds.get(field) / totalNoOfFields * 100.0;
-        }
+				Integer oldCountOfField = presenceOfFileds.get(VALUE_FIELD);
+				presenceOfFileds.put(VALUE_FIELD, ++oldCountOfField);
+			}
 
-        if (actualFieldPresencePerc <= field.getPerc()) {
-            return true;
-        }
+			if (fieldForAdd(VARIATION_FIELD, presenceOfFileds)) {
+				subscription.add(new SubModel(Pair.of(VARIATION_FIELD.getCode(),
+						generateDoubleFromRange(SUB_VARIATION_MIN_RANGE, SUB_VARIATION_MAX_RANGE).toString()), addOperator()));
 
-        return false;
-    }
+				Integer oldCountOfField = presenceOfFileds.get(VARIATION_FIELD);
+				presenceOfFileds.put(VARIATION_FIELD, ++oldCountOfField);
+			}
 
-    private Map<SubFieldsEnum, Integer> initializePresenceOfFieldsMap() {
-        Map<SubFieldsEnum, Integer> presenceOfFileds = new HashMap<>();
+			subscriptionsList.put(String.valueOf(i), subscription);
+		}
 
-        presenceOfFileds.put(COMPANY_FIELD, 0);
-        presenceOfFileds.put(VALUE_FIELD, 0);
-        presenceOfFileds.put(VARIATION_FIELD, 0);
+		return subscriptionsList;
+	}
 
-        return presenceOfFileds;
-    }
+	private String addOperator() {
+		String operator;
+		Double actualEqualsPerc = 0.0;
 
-    private List<List<SubModel>> convertFieldsToType(List<List<SubModel>> inputSubs) {
-        List<List<SubModel>> outputSubs = new ArrayList<>();
-        List<SubModel> outputSub;
+		if (allOperatorsCount > 0) {
+			actualEqualsPerc = Double.valueOf(presenceOfEqualsOperator) / Double.valueOf(allOperatorsCount) * 100.0;
+		}
 
-        for (List<SubModel> inputSub : inputSubs) {
-            outputSub = new ArrayList<>();
+		if (actualEqualsPerc <= SUB_EQUALS_OPERATOR_PRESENCE) {
+			operator = "=";
+			presenceOfEqualsOperator++;
+		} else {
+			operator = generateValueFromArray(OPERATORS);
+		}
 
-            for (SubModel inputSubModel : inputSub) {
-                Pair pair = Pair.of(
-                        inputSubModel.getFieldValue().getLeft(),
-                        TopoConverter.convertToType(inputSubModel.getFieldValue().getRight()));
+		allOperatorsCount++;
 
-                SubModel subModel = new SubModel(pair, inputSubModel.getOperator());
+		return operator;
+	}
 
-                outputSub.add(subModel);
-            }
+	private boolean fieldForAdd(SubFieldsEnum field, Map<SubFieldsEnum, Integer> presenceOfFileds) {
 
-            outputSubs.add(outputSub);
-        }
+		Double totalNoOfFields = Double.valueOf(presenceOfFileds.get(COMPANY_FIELD) +
+				presenceOfFileds.get(VALUE_FIELD) + presenceOfFileds.get(VARIATION_FIELD));
 
-        return outputSubs;
-    }
+		Double actualFieldPresencePerc = 0.0;
 
+		if (totalNoOfFields > 0) {
+			actualFieldPresencePerc = presenceOfFileds.get(field) / totalNoOfFields * 100.0;
+		}
+
+		if (actualFieldPresencePerc <= field.getPerc()) {
+			return true;
+		}
+
+		return false;
+	}
+
+	private Map<SubFieldsEnum, Integer> initializePresenceOfFieldsMap() {
+		Map<SubFieldsEnum, Integer> presenceOfFileds = new HashMap<>();
+
+		presenceOfFileds.put(COMPANY_FIELD, 0);
+		presenceOfFileds.put(VALUE_FIELD, 0);
+		presenceOfFileds.put(VARIATION_FIELD, 0);
+
+		return presenceOfFileds;
+	}
+
+	private List<List<SubModel>> convertFieldsToType(List<List<SubModel>> inputSubs) {
+		List<List<SubModel>> outputSubs = new ArrayList<>();
+		List<SubModel> outputSub;
+
+		for (List<SubModel> inputSub : inputSubs) {
+			outputSub = new ArrayList<>();
+
+			for (SubModel inputSubModel : inputSub) {
+				Pair pair = Pair.of(
+						inputSubModel.getFieldValue().getLeft(),
+						TopoConverter.convertToType(inputSubModel.getFieldValue().getRight()));
+
+				SubModel subModel = new SubModel(pair, inputSubModel.getOperator());
+
+				outputSub.add(subModel);
+			}
+
+			outputSubs.add(outputSub);
+		}
+
+		return outputSubs;
+	}
 }
