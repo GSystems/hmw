@@ -4,23 +4,23 @@ import static ebs.hmw.util.PubSubGenConf.*;
 
 public enum SubFieldsEnum {
 
-    COMPANY_FIELD("company", SUB_COMPANY_FIELD_PRESENCE),
-    VALUE_FIELD("value", SUB_VALUE_FIELD_PRESENCE),
-    VARIATION_FIELD("variation", SUB_VARIATION_FIELD_PRESENCE);
+	COMPANY_FIELD("company", SUB_COMPANY_FIELD_PRESENCE),
+	VALUE_FIELD("value", SUB_VALUE_FIELD_PRESENCE),
+	VARIATION_FIELD("variation", SUB_VARIATION_FIELD_PRESENCE);
 
-    private String code;
-    private Double perc;
+	private String code;
+	private Double perc;
 
-    SubFieldsEnum(String code, Double perc) {
-        this.code = code;
-        this.perc = perc;
-    }
+	SubFieldsEnum(String code, Double perc) {
+		this.code = code;
+		this.perc = perc;
+	}
 
-    public String getCode() {
-        return code;
-    }
+	public String getCode() {
+		return code;
+	}
 
-    public Double getPerc() {
-        return perc;
-    }
+	public Double getPerc() {
+		return perc;
+	}
 }
