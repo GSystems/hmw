@@ -35,7 +35,7 @@ public class SubscriptionSpout extends BaseRichSpout {
 	@Override
 	public void open(Map configs, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
 		this.collector = spoutOutputCollector;
-		saveSubsriptionsToFile(configs);
+//		saveSubsriptionsToFile(configs);
 		openSubsriptionsFile(configs);
 	}
 
