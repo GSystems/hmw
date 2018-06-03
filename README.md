@@ -16,3 +16,5 @@ http://storm.apache.org/releases/current/Running-topologies-on-a-production-clus
 https://github.com/apache/storm/tree/master/examples/storm-starter
 
 https://github.com/storm-book?tab=repositories
+
+https://github.com/bullet-db/bullet-service/releases/tag/bullet-service-0.1.1

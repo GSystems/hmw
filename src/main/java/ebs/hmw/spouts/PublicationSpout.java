@@ -1,8 +1,12 @@
 package ebs.hmw.spouts;
 
 import ebs.hmw.util.GeneralConstants;
+import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.TopoConverter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.log4j.Logger;
+import org.apache.storm.shade.com.google.common.base.CharMatcher;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
@@ -24,35 +28,86 @@ import static ebs.hmw.util.PubSubGenConf.*;
 
 public class PublicationSpout extends BaseRichSpout {
 
+	private static final Integer MAX_FAILS =
+			PubSubGenConf.PUB_TOTAL_MESSAGES_NUMBER * 2 / 100;
+	static Logger LOG = Logger.getLogger(PublicationSpout.class);
+
 	private SpoutOutputCollector collector;
-	private boolean completed = false;
-	private FileReader fileReader;
-
-	public void ack(Object msgId) {
-		System.out.println("OK:" + msgId);
-	}
-
-	public void fail(Object msgId) {
-		System.out.println("FAIL:" + msgId);
-	}
+	private Map<Integer, List<Pair>> pubs;
+	private Map<Integer, List<Pair>> toSend;
+	private Map<Integer, Integer> pubsFailureCount;
+	private int countId = 0;
 
 	@Override
 	public void open(Map configs, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
 		this.collector = spoutOutputCollector;
+		pubs = new HashMap<>();
+		toSend = new HashMap<>();
+		pubsFailureCount = new HashMap<>();
+
 		savePublicationsToFile(configs);
-		openPublicationsFile(configs);
+		readPubsFromFile(configs);
+
+		toSend.putAll(pubs);
 	}
 
 	@Override
 	public void nextTuple() {
 
-		if (completed) {
-			try {
-				Thread.sleep(1);
-			} catch (InterruptedException e) {
+		if (!toSend.isEmpty()) {
+			for (Map.Entry<Integer, List<Pair>> entry : pubs.entrySet()) {
 
+				Integer transactionId = entry.getKey();
+
+				for (Pair pair : entry.getValue()) {
+					collector.emit(new Values(pair.getLeft()), transactionId);
+					collector.emit(new Values(pair.getRight()), transactionId);
+				}
+
+				toSend.clear();
 			}
-			return;
+		}
+	}
+
+	@Override
+	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
+		outputFieldsDeclarer.declare(new Fields(GeneralConstants.FILTER_1_KEYWD));
+	}
+
+	public void ack(Object pubId) {
+		pubs.remove(pubId);
+		LOG.info("Message fully processed [" + pubId + "]");
+	}
+
+	public void fail(Object pubId) {
+
+		if (!pubsFailureCount.containsKey(pubId)) {
+			throw new RuntimeException("Error, transaction id not found [" + pubId + "]");
+		}
+
+		Integer transactionId = (Integer) pubId;
+		Integer failures = pubsFailureCount.get(transactionId) + 1;
+
+		if (failures >= MAX_FAILS) {
+			//If exceeds the max fails will go down the topology
+			throw new RuntimeException("Error, transaction id [" + transactionId + "] has had many errors [" + failures + "]");
+		}
+
+		//If not exceeds the max fails we save the new fails quantity and re-send the message
+		pubsFailureCount.put(transactionId, failures);
+
+		toSend.put(transactionId, pubs.get(transactionId));
+
+		LOG.info("Re-sending message [" + pubId + "]");
+	}
+
+	private void readPubsFromFile(Map configs) {
+		FileReader fileReader;
+
+		try {
+			fileReader = new FileReader(configs.get(PUBS_FILE_PARAM).toString());
+		} catch (FileNotFoundException e) {
+			throw new RuntimeException("Error reading file [" + configs.get(PUBS_FILE_PARAM) + "]");
 		}
 
 		try {
@@ -60,41 +115,67 @@ public class PublicationSpout extends BaseRichSpout {
 
 			String line;
 			while ((line = reader.readLine()) != null) {
-				collector.emit(new Values(line));
+				extractPubFromLineToMap(line);
 			}
 
 			reader.close();
-
 		} catch (IOException e) {
 			throw new RuntimeException("Error reading tuple ", e);
-		} finally {
-			completed = true;
 		}
 	}
 
-	@Override
-	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-		outputFieldsDeclarer.declare(new Fields(GeneralConstants.PRINTER_INPUT_KEYWD));
+	private void extractPubFromLineToMap(String line) {
+		List<Pair> pairs = extractPubFromLine(line);
+
+		pubs.put(countId, pairs);
+
+		countId++;
+	}
+
+	private List<Pair> extractPubFromLine(String input) {
+		String[] words = input.split(";");
+
+		List<Pair> pairs = new ArrayList<>();
+
+		for (String word : words) {
+			String[] splited = word.split(",");
+
+			String aux = StringUtils.EMPTY;
+			int count = 1;
+
+			for (String value : splited) {
+				String field = removeUnwantedChars(value);
+
+				if (count % 2 == 0) {
+					pairs.add(Pair.of(aux, field));
+				}
+
+				aux = field;
+				count++;
+			}
+		}
+
+		return pairs;
 	}
 
 	private void savePublicationsToFile(Map configs) {
-		Map<String, List<Pair>> publications = generatePublications();
+		List<List<Pair>> publications = generatePublications();
 
 		try {
 			FileWriter writer = new FileWriter(configs.get(PUBS_FILE_PARAM).toString());
 
-			for (Map.Entry<String, List<Pair>> publication : publications.entrySet()) {
+			for (List<Pair> publication : publications) {
 				int counter = 1;
 
-				writer.write("{(id," + publication.getKey() + ");");
+				writer.write("{");
 
-				for (Pair parameter : publication.getValue()) {
+				for (Pair pair : publication) {
 					writer.write("(");
-					writer.write(String.valueOf(parameter.getLeft()));
+					writer.write(String.valueOf(pair.getLeft()));
 					writer.write(",");
-					writer.write(String.valueOf(parameter.getRight()));
+					writer.write(String.valueOf(pair.getRight()));
 
-					if (counter == publication.getValue().size()) {
+					if (counter == publication.size()) {
 						writer.write(")");
 					} else {
 						writer.write(");");
@@ -107,25 +188,15 @@ public class PublicationSpout extends BaseRichSpout {
 			}
 
 			writer.close();
-
 		} catch (IOException e) {
 			throw new RuntimeException("Error writing file [" + configs.get(PUBS_FILE_PARAM) + "]");
 		}
 	}
 
-	private void openPublicationsFile(Map configs) {
-		try {
-			fileReader = new FileReader(configs.get(PUBS_FILE_PARAM).toString());
+	private List<List<Pair>> generatePublications() {
+		List<List<Pair>> publications = new ArrayList<>();
 
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException("Error reading file [" + configs.get(PUBS_FILE_PARAM) + "]");
-		}
-	}
-
-	private Map<String, List<Pair>> generatePublications() {
-		Map<String, List<Pair>> publications = new HashMap<>();
-
-		for (long i = 0; i < PUB_TOTAL_MESSAGES_NUMBER; i++) {
+		for (int i = 0; i < PUB_TOTAL_MESSAGES_NUMBER; i++) {
 			List<Pair> publication = new ArrayList<>();
 
 			publication.add(Pair.of(COMPANY_FIELD.getCode(), generateValueFromArray(COMPANIES)));
@@ -134,10 +205,18 @@ public class PublicationSpout extends BaseRichSpout {
 			publication.add(Pair.of(VARIATION_FIELD.getCode(), generateDoubleFromRange(PUB_VARIATION_MIN_RANGE, PUB_VARIATION_MAX_RANGE).toString()));
 			publication.add(Pair.of(DATE_FIELD.getCode(), generateValueFromArray(DATES)));
 
-			publications.put(String.valueOf(i), publication);
+			publications.add(publication);
 		}
 
 		return publications;
+	}
+
+	private String removeUnwantedChars(String input) {
+		CharMatcher alfaNum =
+				CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('A', 'Z'))
+						.or(CharMatcher.inRange('0', '9')).or(CharMatcher.is('.')).precomputed();
+
+		return alfaNum.retainFrom(input);
 	}
 
 	private List<List<Pair>> convertFieldsToType(List<List<Pair>> inputPublications) {
