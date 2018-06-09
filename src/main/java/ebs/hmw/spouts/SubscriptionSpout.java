@@ -1,10 +1,10 @@
 package ebs.hmw.spouts;
 
-import ebs.hmw.model.SubModel;
+import ebs.hmw.model.Subscription;
 import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.SubFieldsEnum;
-import ebs.hmw.util.TopoConverter;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.log4j.Logger;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
@@ -23,32 +23,89 @@ import static ebs.hmw.util.FieldsGenerator.generateValueFromArray;
 import static ebs.hmw.util.GeneralConstants.*;
 import static ebs.hmw.util.PubSubGenConf.*;
 import static ebs.hmw.util.SubFieldsEnum.*;
+import static ebs.hmw.util.TopoConverter.extractSubFromLine;
 
 public class SubscriptionSpout extends BaseRichSpout {
 
+	private static final Integer MAX_FAILS =
+			PubSubGenConf.PUB_TOTAL_MESSAGES_NUMBER * 2 / 100;
+	static Logger LOG = Logger.getLogger(SubscriptionSpout.class);
+
 	private SpoutOutputCollector collector;
+	private Map<Integer, Subscription> subs;
+	private Map<Integer, Subscription> toSend;
+	private Map<Integer, Integer> subsFailureCount;
+	private int countId = 0;
 	private int presenceOfEqualsOperator = 0;
 	private int allOperatorsCount = 0;
-	private boolean completed = false;
-	private FileReader fileReader;
 
 	@Override
 	public void open(Map configs, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
 		this.collector = spoutOutputCollector;
-//		saveSubsriptionsToFile(configs);
-		openSubsriptionsFile(configs);
+		subs = new HashMap<>();
+		toSend = new HashMap<>();
+		subsFailureCount = new HashMap<>();
+
+		saveSubsriptionsToFile(configs);
+		readSubsFromFile(configs);
+
+		toSend.putAll(subs);
 	}
 
 	@Override
 	public void nextTuple() {
 
-		if (completed) {
-			try {
-				Thread.sleep(1);
-			} catch (InterruptedException e) {
-				// do nothing
+		if (!toSend.isEmpty()) {
+			for (Map.Entry<Integer, Subscription> entry : subs.entrySet()) {
+
+				Integer transactionId = entry.getKey();
+				collector.emit(new Values(entry.getValue(), transactionId));
 			}
-			return;
+
+			toSend.clear();
+		}
+	}
+
+	@Override
+	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
+		outputFieldsDeclarer.declare(new Fields(FILTER_1_KEYWD));
+	}
+
+	public void ack(Object pubId) {
+		subs.remove(pubId);
+		LOG.info("Message fully processed [" + pubId + "]");
+	}
+
+	public void fail(Object subId) {
+
+		if (!subsFailureCount.containsKey(subId)) {
+			throw new RuntimeException("Error, transaction id not found [" + subId + "]");
+		}
+
+		Integer transactionId = (Integer) subId;
+		Integer failures = subsFailureCount.get(transactionId) + 1;
+
+		if (failures >= MAX_FAILS) {
+			//If exceeds the max fails will go down the topology
+			throw new RuntimeException("Error, transaction id [" + transactionId + "] has had many errors [" + failures + "]");
+		}
+
+		//If not exceeds the max fails we save the new fails quantity and re-send the message
+		subsFailureCount.put(transactionId, failures);
+
+		toSend.put(transactionId, subs.get(transactionId));
+
+		LOG.info("Re-sending message [" + subId + "]");
+	}
+
+	private void readSubsFromFile(Map configs) {
+		FileReader fileReader;
+
+		try {
+			fileReader = new FileReader(configs.get(SUBS_FILE_PARAM).toString());
+
+		} catch (FileNotFoundException e) {
+			throw new RuntimeException("Error reading file [" + configs.get(SUBS_FILE_PARAM) + "]");
 		}
 
 		try {
@@ -56,52 +113,54 @@ public class SubscriptionSpout extends BaseRichSpout {
 
 			String line;
 			while ((line = reader.readLine()) != null) {
-				collector.emit(new Values(line));
+				extractSubFromLineToMap(line);
 			}
 
 			reader.close();
 
 		} catch (Exception e) {
 			throw new RuntimeException("Error reading tuple ", e);
-		} finally {
-			completed = true;
 		}
 	}
 
-	@Override
-	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-		outputFieldsDeclarer.declare(new Fields(PRINTER_INPUT_KEYWD));
+	private void extractSubFromLineToMap(String line) {
+		Subscription subscription = extractSubFromLine(line);
+
+		subs.put(countId, subscription);
+
+		countId++;
 	}
 
 	private void saveSubsriptionsToFile(Map configs) {
-		Map<String, List<SubModel>> subscriptions = generateSubscriptions();
+		List<Subscription> subscriptions = generateSubscriptions();
 
 		try {
 			FileWriter writer = new FileWriter(configs.get(SUBS_FILE_PARAM).toString());
 
-			for (Map.Entry<String, List<SubModel>> subscription : subscriptions.entrySet()) {
-				int counter = 1;
+			for (Subscription subscription : subscriptions) {
+				StringBuilder stringBuilder = new StringBuilder();
 
-				writer.write("{(id," + subscription.getKey() + ");");
+				stringBuilder.append("{");
 
-				for (SubModel model : subscription.getValue()) {
-					writer.write("(");
-					writer.write(model.getFieldValue().getLeft());
-					writer.write(",");
-					writer.write(model.getOperator());
-					writer.write(",");
-					writer.write(model.getFieldValue().getRight());
-
-					if (counter == subscription.getValue().size()) {
-						writer.write(")");
-					} else {
-						writer.write(");");
-					}
-
-					counter++;
+				if (subscription.getCompany() != null) {
+					stringBuilder.append(generateStringForSubParam(COMPANY_FIELD,
+							subscription.getCompany().getRight(), subscription.getCompany().getLeft()));
 				}
 
-				writer.write("}\n");
+				if (subscription.getValue() != null) {
+					stringBuilder.append(generateStringForSubParam(VALUE_FIELD,
+							subscription.getValue().getRight(), subscription.getValue().getLeft().toString()));
+				}
+
+				if (subscription.getVariation() != null) {
+					stringBuilder.append(generateStringForSubParam(VARIATION_FIELD,
+							subscription.getVariation().getRight(), subscription.getVariation().getLeft().toString()));
+				}
+
+				stringBuilder.append("}\n");
+				stringBuilder.deleteCharAt(stringBuilder.indexOf(Character.toString('}')) - 1);
+
+				writer.write(stringBuilder.toString());
 			}
 
 			writer.close();
@@ -111,26 +170,30 @@ public class SubscriptionSpout extends BaseRichSpout {
 		}
 	}
 
-	private void openSubsriptionsFile(Map configs) {
-		try {
-			fileReader = new FileReader(configs.get(SUBS_FILE_PARAM).toString());
+	private String generateStringForSubParam(SubFieldsEnum field, String operator, String value) {
+		StringBuilder stringBuilder = new StringBuilder();
 
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException("Error reading file [" + configs.get(SUBS_FILE_PARAM) + "]");
-		}
+		stringBuilder.append("(");
+		stringBuilder.append(field.getCode());
+		stringBuilder.append(",");
+		stringBuilder.append(operator);
+		stringBuilder.append(",");
+		stringBuilder.append(value);
+		stringBuilder.append(");");
+
+		return stringBuilder.toString();
 	}
 
-	private Map<String, List<SubModel>> generateSubscriptions() {
-		Map<String, List<SubModel>> subscriptionsList = new HashMap<>();
+	private List<Subscription> generateSubscriptions() {
+		List<Subscription> subscriptions = new ArrayList<>();
 
 		Map<SubFieldsEnum, Integer> presenceOfFileds = initializePresenceOfFieldsMap();
 
 		for (long i = 0; i < PubSubGenConf.SUB_TOTAL_MESSAGES_NUMBER; i++) {
-			List<SubModel> subscription = new ArrayList<>();
+			Subscription subscription = new Subscription();
 
 			if (fieldForAdd(COMPANY_FIELD, presenceOfFileds)) {
-				subscription.add(new SubModel(Pair.of(COMPANY_FIELD.getCode(),
-						generateValueFromArray(COMPANIES)), "="));
+				subscription.setCompany(Pair.of(generateValueFromArray(COMPANIES), "="));
 
 				Integer oldCountOfField = presenceOfFileds.get(COMPANY_FIELD);
 				presenceOfFileds.put(COMPANY_FIELD, ++oldCountOfField);
@@ -139,25 +202,25 @@ public class SubscriptionSpout extends BaseRichSpout {
 			}
 
 			if (fieldForAdd(VALUE_FIELD, presenceOfFileds)) {
-				subscription.add(new SubModel(Pair.of(VALUE_FIELD.getCode(),
-						generateDoubleFromRange(SUB_VALUE_MIN_RANGE, SUB_VALUE_MAX_RANGE).toString()), addOperator()));
+				subscription.setValue(
+						Pair.of(generateDoubleFromRange(SUB_VALUE_MIN_RANGE, SUB_VALUE_MAX_RANGE), addOperator()));
 
 				Integer oldCountOfField = presenceOfFileds.get(VALUE_FIELD);
 				presenceOfFileds.put(VALUE_FIELD, ++oldCountOfField);
 			}
 
 			if (fieldForAdd(VARIATION_FIELD, presenceOfFileds)) {
-				subscription.add(new SubModel(Pair.of(VARIATION_FIELD.getCode(),
-						generateDoubleFromRange(SUB_VARIATION_MIN_RANGE, SUB_VARIATION_MAX_RANGE).toString()), addOperator()));
+				subscription.setVariation(
+						Pair.of(generateDoubleFromRange(SUB_VARIATION_MIN_RANGE, SUB_VARIATION_MAX_RANGE), addOperator()));
 
 				Integer oldCountOfField = presenceOfFileds.get(VARIATION_FIELD);
 				presenceOfFileds.put(VARIATION_FIELD, ++oldCountOfField);
 			}
 
-			subscriptionsList.put(String.valueOf(i), subscription);
+			subscriptions.add(subscription);
 		}
 
-		return subscriptionsList;
+		return subscriptions;
 	}
 
 	private String addOperator() {
@@ -206,28 +269,5 @@ public class SubscriptionSpout extends BaseRichSpout {
 		presenceOfFileds.put(VARIATION_FIELD, 0);
 
 		return presenceOfFileds;
-	}
-
-	private List<List<SubModel>> convertFieldsToType(List<List<SubModel>> inputSubs) {
-		List<List<SubModel>> outputSubs = new ArrayList<>();
-		List<SubModel> outputSub;
-
-		for (List<SubModel> inputSub : inputSubs) {
-			outputSub = new ArrayList<>();
-
-			for (SubModel inputSubModel : inputSub) {
-				Pair pair = Pair.of(
-						inputSubModel.getFieldValue().getLeft(),
-						TopoConverter.convertToType(inputSubModel.getFieldValue().getRight()));
-
-				SubModel subModel = new SubModel(pair, inputSubModel.getOperator());
-
-				outputSub.add(subModel);
-			}
-
-			outputSubs.add(outputSub);
-		}
-
-		return outputSubs;
 	}
 }

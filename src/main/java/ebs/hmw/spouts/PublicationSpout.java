@@ -1,12 +1,11 @@
 package ebs.hmw.spouts;
 
+import ebs.hmw.model.Publication;
 import ebs.hmw.util.GeneralConstants;
 import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.TopoConverter;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
-import org.apache.storm.shade.com.google.common.base.CharMatcher;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
@@ -25,6 +24,7 @@ import static ebs.hmw.util.FieldsGenerator.generateValueFromArray;
 import static ebs.hmw.util.GeneralConstants.*;
 import static ebs.hmw.util.PubFieldsEnum.*;
 import static ebs.hmw.util.PubSubGenConf.*;
+import static ebs.hmw.util.TopoConverter.extractPubFromLine;
 
 public class PublicationSpout extends BaseRichSpout {
 
@@ -33,8 +33,8 @@ public class PublicationSpout extends BaseRichSpout {
 	static Logger LOG = Logger.getLogger(PublicationSpout.class);
 
 	private SpoutOutputCollector collector;
-	private Map<Integer, List<Pair>> pubs;
-	private Map<Integer, List<Pair>> toSend;
+	private Map<Integer, Publication> pubs;
+	private Map<Integer, Publication> toSend;
 	private Map<Integer, Integer> pubsFailureCount;
 	private int countId = 0;
 
@@ -55,14 +55,11 @@ public class PublicationSpout extends BaseRichSpout {
 	public void nextTuple() {
 
 		if (!toSend.isEmpty()) {
-			for (Map.Entry<Integer, List<Pair>> entry : pubs.entrySet()) {
+			for (Map.Entry<Integer, Publication> entry : pubs.entrySet()) {
 
 				Integer transactionId = entry.getKey();
 
-				for (Pair pair : entry.getValue()) {
-					collector.emit(new Values(pair.getLeft()), transactionId);
-					collector.emit(new Values(pair.getRight()), transactionId);
-				}
+				collector.emit(new Values(entry.getValue(), transactionId));
 
 				toSend.clear();
 			}
@@ -125,37 +122,11 @@ public class PublicationSpout extends BaseRichSpout {
 	}
 
 	private void extractPubFromLineToMap(String line) {
-		List<Pair> pairs = extractPubFromLine(line);
+		Publication publication = extractPubFromLine(line);
 
-		pubs.put(countId, pairs);
+		pubs.put(countId, publication);
 
 		countId++;
-	}
-
-	private List<Pair> extractPubFromLine(String input) {
-		String[] words = input.split(";");
-
-		List<Pair> pairs = new ArrayList<>();
-
-		for (String word : words) {
-			String[] splited = word.split(",");
-
-			String aux = StringUtils.EMPTY;
-			int count = 1;
-
-			for (String value : splited) {
-				String field = removeUnwantedChars(value);
-
-				if (count % 2 == 0) {
-					pairs.add(Pair.of(aux, field));
-				}
-
-				aux = field;
-				count++;
-			}
-		}
-
-		return pairs;
 	}
 
 	private void savePublicationsToFile(Map configs) {
@@ -165,26 +136,22 @@ public class PublicationSpout extends BaseRichSpout {
 			FileWriter writer = new FileWriter(configs.get(PUBS_FILE_PARAM).toString());
 
 			for (List<Pair> publication : publications) {
-				int counter = 1;
+				StringBuilder stringBuilder = new StringBuilder();
 
-				writer.write("{");
+				stringBuilder.append("{");
 
 				for (Pair pair : publication) {
-					writer.write("(");
-					writer.write(String.valueOf(pair.getLeft()));
-					writer.write(",");
-					writer.write(String.valueOf(pair.getRight()));
-
-					if (counter == publication.size()) {
-						writer.write(")");
-					} else {
-						writer.write(");");
-					}
-
-					counter++;
+					stringBuilder.append("(");
+					stringBuilder.append(String.valueOf(pair.getLeft()));
+					stringBuilder.append(",");
+					stringBuilder.append(String.valueOf(pair.getRight()));
+					stringBuilder.append(");");
 				}
 
-				writer.write("}\n");
+				stringBuilder.append("}\n");
+				stringBuilder.deleteCharAt(stringBuilder.indexOf(Character.toString('}')) - 1);
+
+				writer.write(stringBuilder.toString());
 			}
 
 			writer.close();
@@ -209,14 +176,6 @@ public class PublicationSpout extends BaseRichSpout {
 		}
 
 		return publications;
-	}
-
-	private String removeUnwantedChars(String input) {
-		CharMatcher alfaNum =
-				CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('A', 'Z'))
-						.or(CharMatcher.inRange('0', '9')).or(CharMatcher.is('.')).precomputed();
-
-		return alfaNum.retainFrom(input);
 	}
 
 	private List<List<Pair>> convertFieldsToType(List<List<Pair>> inputPublications) {

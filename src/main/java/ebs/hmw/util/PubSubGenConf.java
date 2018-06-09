@@ -15,7 +15,7 @@ public class PubSubGenConf {
 	public static final Double PUB_VALUE_MAX_RANGE = 1.0;
 	public static final Double PUB_VARIATION_MIN_RANGE = 0.5;
 	public static final Double PUB_VARIATION_MAX_RANGE = 0.99;
-	protected static final Double SUB_COMPANY_FIELD_PRESENCE = 90.0;
-	protected static final Double SUB_VALUE_FIELD_PRESENCE = 30.0;
-	protected static final Double SUB_VARIATION_FIELD_PRESENCE = 20.0;
+	public static final Double SUB_COMPANY_FIELD_PRESENCE = 90.0;
+	public static final Double SUB_VALUE_FIELD_PRESENCE = 30.0;
+	public static final Double SUB_VARIATION_FIELD_PRESENCE = 20.0;
 }
