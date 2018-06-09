@@ -1,8 +1,19 @@
 package ebs.hmw.util;
 
+import ebs.hmw.model.Publication;
+import ebs.hmw.model.Subscription;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.storm.shade.com.google.common.base.CharMatcher;
+import org.apache.storm.shade.org.joda.time.DateTime;
+import org.apache.storm.shade.org.joda.time.format.DateTimeFormat;
+import org.apache.storm.shade.org.joda.time.format.DateTimeFormatter;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 public class TopoConverter {
 
@@ -10,7 +21,7 @@ public class TopoConverter {
 
 		Integer integer = Integer.MIN_VALUE;
 		Double number = Double.MIN_VALUE;
-		Date date = null;
+		DateTime date = null;
 		String string = null;
 
 		try {
@@ -21,7 +32,7 @@ public class TopoConverter {
 			} catch (NumberFormatException f) {
 				try {
 					date = convertStringToDate(input);
-				} catch (ParseException g) {
+				} catch (Exception g) {
 					string = input.toString();
 				}
 			}
@@ -40,9 +51,107 @@ public class TopoConverter {
 		return null;
 	}
 
-	private static Date convertStringToDate(Object input) throws ParseException {
-		SimpleDateFormat tempDate = new SimpleDateFormat(GeneralConstants.DATE_FORMAT);
+	public static Publication extractPubFromLine(String input) {
+		String[] words = input.split(";");
+		Publication publication = new Publication();
 
-		return tempDate.parse(input.toString());
+		for (String word : words) {
+			String[] splited = word.split(",");
+
+			String aux = StringUtils.EMPTY;
+			int count = 1;
+
+			for (String value : splited) {
+				String field = removeUnwantedChars(value);
+
+				if (count % 2 == 0) {
+					mapFieldForPublication(publication, aux, field);
+				}
+
+				aux = field;
+				count++;
+			}
+		}
+
+		return publication;
+	}
+
+	private static void mapFieldForPublication(Publication publication, String property, String value) {
+		switch (property) {
+			case "company":
+				publication.setCompany(value);
+				break;
+			case "value":
+				publication.setValue(Double.valueOf(value));
+				break;
+			case "variation":
+				publication.setVariation(Double.valueOf(value));
+				break;
+			case "drop":
+				publication.setDrop(Double.valueOf(value));
+				break;
+			case "date":
+				publication.setDate(convertStringToDate(value));
+				break;
+		}
+	}
+
+	public static Subscription extractSubFromLine(String input) {
+		String[] words = input.split(";");
+		Subscription subscription = new Subscription();
+
+		for (String word : words) {
+			String[] splited = word.split(",");
+
+			String aux1 = StringUtils.EMPTY;
+			String aux2 = StringUtils.EMPTY;
+			int count = 1;
+
+			for (String value : splited) {
+				String param = removeUnwantedChars(value);
+
+				aux1 = param;
+
+				if (count % 2 == 0) {
+					aux2 = param;
+				} else if (count % 3 == 0) {
+					mapFieldForSubscription(subscription, aux1, aux2, param);
+				}
+
+				count++;
+			}
+		}
+
+		return subscription;
+	}
+
+	private static void mapFieldForSubscription(Subscription subscription, String field, String operator, String value) {
+		switch (field) {
+			case "company":
+				subscription.setCompany(Pair.of(value, operator));
+				break;
+			case "value":
+				subscription.setValue(Pair.of(Double.valueOf(value), operator));
+				break;
+			case "drop":
+				subscription.setValue(Pair.of(Double.valueOf(value), operator));
+				break;
+		}
+	}
+
+	private static String removeUnwantedChars(String input) {
+		CharMatcher alfaNum =
+				CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('A', 'Z'))
+						.or(CharMatcher.inRange('0', '9')).or(CharMatcher.is('.')).precomputed();
+
+		return alfaNum.retainFrom(input);
+	}
+
+	private static DateTime convertStringToDate(Object input) {
+		DateTimeFormatter formatter = DateTimeFormat.forPattern(GeneralConstants.DATE_FORMAT);
+
+		DateTime date = formatter.parseDateTime(input.toString());
+
+		return date;
 	}
 }
