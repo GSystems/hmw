@@ -1,5 +1,6 @@
 package ebs.hmw.spouts;
 
+import ebs.hmw.model.Subscriber;
 import ebs.hmw.model.Subscription;
 import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.SubFieldsEnum;
@@ -25,19 +26,27 @@ import static ebs.hmw.util.PubSubGenConf.*;
 import static ebs.hmw.util.SubFieldsEnum.*;
 import static ebs.hmw.util.TopoConverter.extractSubFromLine;
 
-public class SubscriptionSpout extends BaseRichSpout {
+public class SubscriberSpout extends BaseRichSpout {
 
 	private static final Integer MAX_FAILS =
 			PubSubGenConf.PUB_TOTAL_MESSAGES_NUMBER * 2 / 100;
-	static Logger LOG = Logger.getLogger(SubscriptionSpout.class);
+	static Logger LOG = Logger.getLogger(SubscriberSpout.class);
 
 	private SpoutOutputCollector collector;
+	private int subscriberId;
+	private String subscriptionsFile;
+
 	private Map<Integer, Subscription> subs;
 	private Map<Integer, Subscription> toSend;
 	private Map<Integer, Integer> subsFailureCount;
-	private int countId = 0;
+	private int subscriptionsCountId = 0;
 	private int presenceOfEqualsOperator = 0;
 	private int allOperatorsCount = 0;
+
+	public SubscriberSpout(int subscriberId, String subscriptionsFile) {
+		this.subscriberId = subscriberId;
+		this.subscriptionsFile = subscriptionsFile;
+	}
 
 	@Override
 	public void open(Map configs, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector) {
@@ -46,8 +55,8 @@ public class SubscriptionSpout extends BaseRichSpout {
 		toSend = new HashMap<>();
 		subsFailureCount = new HashMap<>();
 
-		saveSubsriptionsToFile(configs);
-		readSubsFromFile(configs);
+		generateAndSaveSubsriptionsToFile();
+		readSubsFromFile();
 
 		toSend.putAll(subs);
 	}
@@ -57,9 +66,7 @@ public class SubscriptionSpout extends BaseRichSpout {
 
 		if (!toSend.isEmpty()) {
 			for (Map.Entry<Integer, Subscription> entry : subs.entrySet()) {
-
-				Integer transactionId = entry.getKey();
-				collector.emit(new Values(entry.getValue(), transactionId));
+				collector.emit(new Values(subscriberId, entry.getValue(), entry.getValue().getId()));
 			}
 
 			toSend.clear();
@@ -68,7 +75,7 @@ public class SubscriptionSpout extends BaseRichSpout {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-		outputFieldsDeclarer.declare(new Fields(FILTER_1_KEYWD));
+		outputFieldsDeclarer.declare(new Fields(SUBSCRIBER_1_ID, SUB_SPOUT_OUT, SUB_TRANSACTION_ID));
 	}
 
 	public void ack(Object pubId) {
@@ -98,14 +105,14 @@ public class SubscriptionSpout extends BaseRichSpout {
 		LOG.info("Re-sending message [" + subId + "]");
 	}
 
-	private void readSubsFromFile(Map configs) {
+	private void readSubsFromFile() {
 		FileReader fileReader;
 
 		try {
-			fileReader = new FileReader(configs.get(SUBS_FILE_PARAM).toString());
+			fileReader = new FileReader(subscriptionsFile);
 
 		} catch (FileNotFoundException e) {
-			throw new RuntimeException("Error reading file [" + configs.get(SUBS_FILE_PARAM) + "]");
+			throw new RuntimeException("Error reading file [" + subscriptionsFile + "]");
 		}
 
 		try {
@@ -123,19 +130,23 @@ public class SubscriptionSpout extends BaseRichSpout {
 		}
 	}
 
-	private void extractSubFromLineToMap(String line) {
+	private Subscription extractSubFromLineToMap(String line) {
 		Subscription subscription = extractSubFromLine(line);
+		subscription.setPublications(new HashMap<>());
+		subscription.setId(subscriptionsCountId);
 
-		subs.put(countId, subscription);
+		subs.put(subscriptionsCountId, subscription);
 
-		countId++;
+		subscriptionsCountId++;
+
+		return subscription;
 	}
 
-	private void saveSubsriptionsToFile(Map configs) {
+	private void generateAndSaveSubsriptionsToFile() {
 		List<Subscription> subscriptions = generateSubscriptions();
 
 		try {
-			FileWriter writer = new FileWriter(configs.get(SUBS_FILE_PARAM).toString());
+			FileWriter writer = new FileWriter(subscriptionsFile);
 
 			for (Subscription subscription : subscriptions) {
 				StringBuilder stringBuilder = new StringBuilder();
@@ -166,7 +177,7 @@ public class SubscriptionSpout extends BaseRichSpout {
 			writer.close();
 
 		} catch (IOException e) {
-			throw new RuntimeException("Error writing file [" + configs.get(SUBS_FILE_PARAM) + "]");
+			throw new RuntimeException("Error writing file [" + subscriptionsFile + "]");
 		}
 	}
 

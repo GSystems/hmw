@@ -9,12 +9,6 @@ import org.apache.storm.shade.org.joda.time.DateTime;
 import org.apache.storm.shade.org.joda.time.format.DateTimeFormat;
 import org.apache.storm.shade.org.joda.time.format.DateTimeFormatter;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
 public class TopoConverter {
 
 	public static Object convertToType(Object input) {
@@ -103,23 +97,11 @@ public class TopoConverter {
 		for (String word : words) {
 			String[] splited = word.split(",");
 
-			String aux1 = StringUtils.EMPTY;
-			String aux2 = StringUtils.EMPTY;
-			int count = 1;
+			String field = removeUnwantedChars(splited[0]);
+			String operator = splited[1];
+			String value = removeUnwantedChars(splited[2]);
 
-			for (String value : splited) {
-				String param = removeUnwantedChars(value);
-
-				aux1 = param;
-
-				if (count % 2 == 0) {
-					aux2 = param;
-				} else if (count % 3 == 0) {
-					mapFieldForSubscription(subscription, aux1, aux2, param);
-				}
-
-				count++;
-			}
+			mapFieldForSubscription(subscription, field, operator, value);
 		}
 
 		return subscription;
@@ -133,8 +115,8 @@ public class TopoConverter {
 			case "value":
 				subscription.setValue(Pair.of(Double.valueOf(value), operator));
 				break;
-			case "drop":
-				subscription.setValue(Pair.of(Double.valueOf(value), operator));
+			case "variation":
+				subscription.setVariation(Pair.of(Double.valueOf(value), operator));
 				break;
 		}
 	}

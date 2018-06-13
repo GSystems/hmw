@@ -6,6 +6,7 @@ import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.TopoConverter;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
+import org.apache.storm.shade.org.joda.time.DateTime;
 import org.apache.storm.spout.SpoutOutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
@@ -56,9 +57,9 @@ public class PublicationSpout extends BaseRichSpout {
 
 		if (!toSend.isEmpty()) {
 			for (Map.Entry<Integer, Publication> entry : pubs.entrySet()) {
-
 				Integer transactionId = entry.getKey();
 
+				entry.getValue().setSendTime(DateTime.now());
 				collector.emit(new Values(entry.getValue(), transactionId));
 
 				toSend.clear();
@@ -68,7 +69,7 @@ public class PublicationSpout extends BaseRichSpout {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-		outputFieldsDeclarer.declare(new Fields(GeneralConstants.FILTER_1_KEYWD));
+		outputFieldsDeclarer.declare(new Fields(PUB_SPOUT_OUT, PUB_TRANSACTION_ID));
 	}
 
 	public void ack(Object pubId) {
@@ -123,6 +124,7 @@ public class PublicationSpout extends BaseRichSpout {
 
 	private void extractPubFromLineToMap(String line) {
 		Publication publication = extractPubFromLine(line);
+		publication.setPublicationId(countId);
 
 		pubs.put(countId, publication);
 
