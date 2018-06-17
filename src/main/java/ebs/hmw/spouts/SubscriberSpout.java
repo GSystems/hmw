@@ -1,6 +1,5 @@
 package ebs.hmw.spouts;
 
-import ebs.hmw.model.Subscriber;
 import ebs.hmw.model.Subscription;
 import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.SubFieldsEnum;
@@ -75,7 +74,7 @@ public class SubscriberSpout extends BaseRichSpout {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-		outputFieldsDeclarer.declare(new Fields(SUBSCRIBER_1_ID, SUB_SPOUT_OUT, SUB_TRANSACTION_ID));
+		outputFieldsDeclarer.declare(new Fields(SUBSCRIBER_1_STREAM, SUBSCRIBER_SPOUT_OUT, SUB_TRANSACTION_ID));
 	}
 
 	public void ack(Object pubId) {
@@ -132,7 +131,7 @@ public class SubscriberSpout extends BaseRichSpout {
 
 	private Subscription extractSubFromLineToMap(String line) {
 		Subscription subscription = extractSubFromLine(line);
-		subscription.setPublications(new HashMap<>());
+		subscription.setPublications(new ArrayList<>());
 		subscription.setId(subscriptionsCountId);
 
 		subs.put(subscriptionsCountId, subscription);
