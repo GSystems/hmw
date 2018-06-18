@@ -1,9 +1,7 @@
 package ebs.hmw.bolts;
 
 import ebs.hmw.model.Publication;
-import ebs.hmw.model.Subscriber;
 import ebs.hmw.model.Subscription;
-import ebs.hmw.util.GeneralConstants;
 import ebs.hmw.util.Matcher;
 import org.apache.storm.shade.org.joda.time.DateTime;
 import org.apache.storm.task.OutputCollector;
@@ -36,33 +34,22 @@ public class FilterBolt extends BaseRichBolt {
 			Publication publication = (Publication) tuple.getValueByField(PUB_SPOUT_OUT);
 
 			publication.setReceivedTime(DateTime.now());
-			matcher.matchPublication(publication);
+			int subscriberId = matcher.matchPublication(publication);
 
-			collector.emit(new Values(publication));
+			if (subscriberId != 0) {
+				collector.emit(new Values(subscriberId, publication));
+			}
 		}
 
 		if (tuple.size() == 3) {
-			int subscriberId = (int) tuple.getValueByField(SUBSCRIBER_1_ID);
+			int subscriberId = (int) tuple.getValueByField(SUBSCRIBER_SPOUT_STREAM);
 			matcher.addSubscriber(subscriberId);
-			matcher.addSubscription(subscriberId, (Subscription) tuple.getValueByField(SUB_SPOUT_OUT));
+			matcher.addSubscription(subscriberId, (Subscription) tuple.getValueByField(SUBSCRIBER_SPOUT_OUT));
 		}
 	}
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declare(new Fields(GeneralConstants.METRICS_BOLT_STREAM));
-	}
-
-	@Override
-	public void cleanup() {
-		Map<Integer, Subscriber> subscribers = matcher.getSubscribers();
-
-		for (Map.Entry<Integer, Subscriber> entry : subscribers.entrySet()) {
-			for (Subscription subscription : entry.getValue().getSubscriptions()) {
-				System.out.println("Subscriber: " + entry.getKey()
-						+ " - subscription " + subscription.getId()
-						+ " has " + subscription.getPublications().size() + " mathces");
-			}
-		}
+		declarer.declare(new Fields(SUBSCRIBER_ID, SUBSCRIBER_BOLT_STREAM));
 	}
 }
