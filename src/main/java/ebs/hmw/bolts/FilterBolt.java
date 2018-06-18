@@ -34,14 +34,15 @@ public class FilterBolt extends BaseRichBolt {
 			Publication publication = (Publication) tuple.getValueByField(PUB_SPOUT_OUT);
 
 			publication.setReceivedTime(DateTime.now());
+			int subscriberId = matcher.matchPublication(publication);
 
-			if (matcher.matchPublication(publication)) {
-				collector.emit(new Values(publication));
+			if (subscriberId != 0) {
+				collector.emit(new Values(subscriberId, publication));
 			}
 		}
 
 		if (tuple.size() == 3) {
-			int subscriberId = (int) tuple.getValueByField(SUBSCRIBER_1_STREAM);
+			int subscriberId = (int) tuple.getValueByField(SUBSCRIBER_SPOUT_STREAM);
 			matcher.addSubscriber(subscriberId);
 			matcher.addSubscription(subscriberId, (Subscription) tuple.getValueByField(SUBSCRIBER_SPOUT_OUT));
 		}
@@ -49,6 +50,6 @@ public class FilterBolt extends BaseRichBolt {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
-		declarer.declare(new Fields(SUBSCRIBER_BOLT_STREAM));
+		declarer.declare(new Fields(SUBSCRIBER_ID, SUBSCRIBER_BOLT_STREAM));
 	}
 }

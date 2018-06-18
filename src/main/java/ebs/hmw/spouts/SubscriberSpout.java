@@ -41,10 +41,12 @@ public class SubscriberSpout extends BaseRichSpout {
 	private int subscriptionsCountId = 0;
 	private int presenceOfEqualsOperator = 0;
 	private int allOperatorsCount = 0;
+	private int noOfSubscriptions;
 
-	public SubscriberSpout(int subscriberId, String subscriptionsFile) {
+	public SubscriberSpout(int subscriberId, String subscriptionsFile, int noOfSubscriptions) {
 		this.subscriberId = subscriberId;
 		this.subscriptionsFile = subscriptionsFile;
+		this.noOfSubscriptions = noOfSubscriptions;
 	}
 
 	@Override
@@ -74,7 +76,7 @@ public class SubscriberSpout extends BaseRichSpout {
 
 	@Override
 	public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-		outputFieldsDeclarer.declare(new Fields(SUBSCRIBER_1_STREAM, SUBSCRIBER_SPOUT_OUT, SUB_TRANSACTION_ID));
+		outputFieldsDeclarer.declare(new Fields(SUBSCRIBER_SPOUT_STREAM, SUBSCRIBER_SPOUT_OUT, SUB_TRANSACTION_ID));
 	}
 
 	public void ack(Object pubId) {
@@ -199,7 +201,7 @@ public class SubscriberSpout extends BaseRichSpout {
 
 		Map<SubFieldsEnum, Integer> presenceOfFileds = initializePresenceOfFieldsMap();
 
-		for (long i = 0; i < PubSubGenConf.SUB_TOTAL_MESSAGES_NUMBER; i++) {
+		for (long i = 0; i < noOfSubscriptions; i++) {
 			Subscription subscription = new Subscription();
 
 			if (fieldForAdd(COMPANY_FIELD, presenceOfFileds)) {

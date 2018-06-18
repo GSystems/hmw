@@ -16,11 +16,9 @@ public class GeneralConstants {
 	public static final String SUBSCRIBER_BOLT_2 = "sub_bolt_2";
 	public static final String SUBSCRIBER_BOLT_3 = "sub_bolt_3";
 
-	public static final String SUBSCRIBER_1_STREAM = "subscriber_1_stream";
-	public static final String SUBSCRIBER_2_STREAM = "subscriber_2_stream";
-	public static final String SUBSCRIBER_3_STREAM = "subscriber_3_stream";
+	public static final String SUBSCRIBER_SPOUT_STREAM = "subscriber_1_spout_stream";
 
-	public static final String SUBSCRIBER_BOLT_STREAM = "subscriber_bolt_stream";
+	public static final String SUBSCRIBER_BOLT_STREAM = "subscriber_1_bolt_stream";
 	public static final String SUBSCRIBER_ID = "subscriber_id";
 
 	public static final String SUBSCRIBER_SPOUT_OUT = "sub_spout_out";
@@ -30,9 +28,7 @@ public class GeneralConstants {
 	public static final String PUBLISHER_SPOUT_1 = "pub_spout";
 	public static final String PUB_SPOUT_OUT = "pub_spout_out";
 
-	public static final String FILTER_BOLT_1 = "filter_bolt_1";
-	public static final String FILTER_BOLT_2 = "filter_bolt_2";
-	public static final String FILTER_BOLT_3 = "filter_bolt_3";
+	public static final String FILTER_BOLT_ID = "filter_bolt_1";
 
 	public static final String METRICS_BOLT_ID = "metrics_bolt_id";
 	public static final String METRICS_BOLT_STREAM = "metrics_bolt_stream";

@@ -31,18 +31,18 @@ public class Matcher {
 		}
 	}
 
-	public boolean matchPublication(Publication publication) {
+	public Integer matchPublication(Publication publication) {
 		for (Map.Entry<Integer, Subscriber> entry : subscribers.entrySet()) {
 			for (Subscription subscription : entry.getValue().getSubscriptions()) {
 
 				if (matchPublicationToSubscription(publication, subscription)) {
 					subscription.getPublications().add(publication);
-					return true;
+					return entry.getKey();
 				}
 			}
 		}
 
-		return false;
+		return 0;
 	}
 
 	private boolean matchPublicationToSubscription(Publication publication, Subscription subscription) {
