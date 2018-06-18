@@ -13,13 +13,63 @@ import static ebs.hmw.util.GeneralConstants.*;
 
 public class HmwApp {
 
-	private static final String CURRENT_TOPOLOGY = "test_topology";
+	private static final String PUBLISHER_TOPOLOGY = "publisher_topology";
+	private static final String BROKER_TOPOLOGY = "broker_topology";
+	private static final String SUBSCRIBER_TOPOLOGY = "subscriber_topology";
 
 	public static void main(String[] args) {
 
-		TopologyBuilder builder = new TopologyBuilder();
+		TopologyBuilder publisherTopology = createPublisherTopology();
+		TopologyBuilder brokerTopology = createBrokerTopology();
+		TopologyBuilder subscriberTopology = createSubscriberTopology();
+
+		Config publisherTopologyConfig = new Config();
+		publisherTopologyConfig.put(PUBS_FILE_PARAM, PUBS_FILE);
+
+		LocalCluster cluster = new LocalCluster();
+		cluster.submitTopology(PUBLISHER_TOPOLOGY, publisherTopologyConfig, publisherTopology.createTopology());
+		cluster.submitTopology(BROKER_TOPOLOGY, new Config(), brokerTopology.createTopology());
+		cluster.submitTopology(SUBSCRIBER_TOPOLOGY, new Config(), subscriberTopology.createTopology());
+
+		try {
+			Thread.sleep( 60 * 1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+
+		cluster.killTopology(PUBLISHER_TOPOLOGY);
+		cluster.killTopology(BROKER_TOPOLOGY);
+		cluster.killTopology(SUBSCRIBER_TOPOLOGY);
+
+		cluster.shutdown();
+	}
+
+	private static TopologyBuilder createPublisherTopology() {
+		TopologyBuilder publisherTopology = new TopologyBuilder();
 
 		PublicationSpout publisher = new PublicationSpout();
+		publisherTopology.setSpout(PUBLISHER_SPOUT_1, publisher);
+
+		return publisherTopology;
+	}
+
+	private static TopologyBuilder createBrokerTopology() {
+		TopologyBuilder brokerTopology = new TopologyBuilder();
+
+		FilterBolt filterBolt = new FilterBolt();
+
+		brokerTopology.setBolt(FILTER_BOLT_ID, filterBolt)
+				.shuffleGrouping(PUBLISHER_SPOUT_1)
+				.shuffleGrouping(SUBSCRIBER_SPOUT_1)
+				.shuffleGrouping(SUBSCRIBER_SPOUT_2)
+				.shuffleGrouping(SUBSCRIBER_SPOUT_3);
+
+		return brokerTopology;
+	}
+
+	private static TopologyBuilder createSubscriberTopology() {
+		TopologyBuilder subscriberTopology = new TopologyBuilder();
+
 		SubscriberSpout subscriber1 = new SubscriberSpout(1, "subs1.txt", 5);
 		SubscriberBolt subscriberBolt1 = new SubscriberBolt(1);
 
@@ -29,42 +79,21 @@ public class HmwApp {
 		SubscriberSpout subscriber3 = new SubscriberSpout(3, "subs3.txt", 1000);
 		SubscriberBolt subscriberBolt3 = new SubscriberBolt(3);
 
-		FilterBolt filterBolt = new FilterBolt();
+		subscriberTopology.setSpout(SUBSCRIBER_SPOUT_1, subscriber1);
+		subscriberTopology.setSpout(SUBSCRIBER_SPOUT_2, subscriber2);
+		subscriberTopology.setSpout(SUBSCRIBER_SPOUT_3, subscriber3);
+
+		subscriberTopology.setBolt(SUBSCRIBER_BOLT_1, subscriberBolt1).shuffleGrouping(FILTER_BOLT_ID);
+		subscriberTopology.setBolt(SUBSCRIBER_BOLT_2, subscriberBolt2).shuffleGrouping(FILTER_BOLT_ID);
+		subscriberTopology.setBolt(SUBSCRIBER_BOLT_3, subscriberBolt3).shuffleGrouping(FILTER_BOLT_ID);
+
 		MetricsBolt metricsBolt = new MetricsBolt();
 
-		builder.setSpout(PUBLISHER_SPOUT_1, publisher);
-		builder.setSpout(SUBSCRIBER_SPOUT_1, subscriber1);
-		builder.setSpout(SUBSCRIBER_SPOUT_2, subscriber2);
-		builder.setSpout(SUBSCRIBER_SPOUT_3, subscriber3);
-
-		builder.setBolt(SUBSCRIBER_BOLT_1, subscriberBolt1).shuffleGrouping(FILTER_BOLT_ID);
-		builder.setBolt(SUBSCRIBER_BOLT_2, subscriberBolt2).shuffleGrouping(FILTER_BOLT_ID);
-		builder.setBolt(SUBSCRIBER_BOLT_3, subscriberBolt3).shuffleGrouping(FILTER_BOLT_ID);
-
-		builder.setBolt(FILTER_BOLT_ID, filterBolt)
-				.shuffleGrouping(PUBLISHER_SPOUT_1)
-				.shuffleGrouping(SUBSCRIBER_SPOUT_1)
-				.shuffleGrouping(SUBSCRIBER_SPOUT_2)
-				.shuffleGrouping(SUBSCRIBER_SPOUT_3);
-
-		builder.setBolt(METRICS_BOLT_ID, metricsBolt)
+		subscriberTopology.setBolt(METRICS_BOLT_ID, metricsBolt)
 				.allGrouping(SUBSCRIBER_BOLT_1)
 				.allGrouping(SUBSCRIBER_BOLT_2)
 				.allGrouping(SUBSCRIBER_BOLT_3);
 
-		Config config = new Config();
-		config.put(PUBS_FILE_PARAM, PUBS_FILE);
-
-		LocalCluster cluster = new LocalCluster();
-		cluster.submitTopology(CURRENT_TOPOLOGY, config, builder.createTopology());
-
-		try {
-			Thread.sleep( 60 * 1000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-
-		cluster.killTopology(CURRENT_TOPOLOGY);
-		cluster.shutdown();
+		return subscriberTopology;
 	}
 }

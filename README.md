@@ -5,6 +5,8 @@ Sem Project
 
 Useful links:
 
+https://spring.io/blog/2011/04/01/routing-topologies-for-performance-and-scalability-with-rabbitmq/
+
 https://community.hortonworks.com/articles/550/unofficial-storm-and-kafka-best-practices-guide.html
 
 https://www.michael-noll.com/tutorials/running-multi-node-storm-cluster/
