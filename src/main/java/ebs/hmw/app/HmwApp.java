@@ -17,6 +17,14 @@ public class HmwApp {
 	private static final String BROKER_TOPOLOGY = "broker_topology";
 	private static final String SUBSCRIBER_TOPOLOGY = "subscriber_topology";
 
+	private static final String SUBSCRIPTIONS_FILE_1 = "subs1.txt";
+	private static final String SUBSCRIPTIONS_FILE_2 = "subs2.txt";
+	private static final String SUBSCRIPTIONS_FILE_3 = "subs3.txt";
+
+	private static final int NO_OF_SUBS_FOR_SUB_1 = 5;
+	private static final int NO_OF_SUBS_FOR_SUB_2 = 10;
+	private static final int NO_OF_SUBS_FOR_SUB_3 = 1000;
+
 	public static void main(String[] args) {
 
 		TopologyBuilder publisherTopology = createPublisherTopology();
@@ -70,13 +78,13 @@ public class HmwApp {
 	private static TopologyBuilder createSubscriberTopology() {
 		TopologyBuilder subscriberTopology = new TopologyBuilder();
 
-		SubscriberSpout subscriber1 = new SubscriberSpout(1, "subs1.txt", 5);
+		SubscriberSpout subscriber1 = new SubscriberSpout(1, SUBSCRIPTIONS_FILE_1, NO_OF_SUBS_FOR_SUB_1);
 		SubscriberBolt subscriberBolt1 = new SubscriberBolt(1);
 
-		SubscriberSpout subscriber2 = new SubscriberSpout(2, "subs2.txt", 10);
+		SubscriberSpout subscriber2 = new SubscriberSpout(2, SUBSCRIPTIONS_FILE_2, NO_OF_SUBS_FOR_SUB_2);
 		SubscriberBolt subscriberBolt2 = new SubscriberBolt(2);
 
-		SubscriberSpout subscriber3 = new SubscriberSpout(3, "subs3.txt", 1000);
+		SubscriberSpout subscriber3 = new SubscriberSpout(3, SUBSCRIPTIONS_FILE_3, NO_OF_SUBS_FOR_SUB_3);
 		SubscriberBolt subscriberBolt3 = new SubscriberBolt(3);
 
 		subscriberTopology.setSpout(SUBSCRIBER_SPOUT_1, subscriber1);
