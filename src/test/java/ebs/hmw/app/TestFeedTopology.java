@@ -15,14 +15,14 @@ public class TestFeedTopology {
 		conf.setNumWorkers(2);
 
 //		LocalCluster pubCluster = new LocalCluster();
-//		pubCluster.submitTopology("test", conf, HmwApp.buildPubTopology());
+//		pubCluster.submitTopology("test", conf, PublisherApp.buildPubTopology());
 //		Utils.sleep(1000);
 //		pubCluster.deactivate("test");
 //		pubCluster.killTopology("test");
 //		pubCluster.shutdown();
 //
 //		LocalCluster subCluster = new LocalCluster();
-//		subCluster.submitTopology("test", conf, HmwApp.buildSubTopology());
+//		subCluster.submitTopology("test", conf, PublisherApp.buildSubTopology());
 //		Utils.sleep(1000);
 //		subCluster.deactivate("test");
 //		subCluster.killTopology("test");

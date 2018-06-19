@@ -1,0 +1,19 @@
+syntax = "proto3";
+package subscriptions;
+
+option java_package = "";
+option java_outer_classname = "ProtoSub";
+
+message ProtoSubscription {
+  int32 id = 1;
+  string company = 2;
+  string companySign = 3;
+  double value = 4;
+  string valueSign = 5;
+  double variation = 6;
+  string variationSign = 7;
+}
+
+message ProtoSubscriptionList {
+  repeated ProtoSubscription subscription = 1;
+}

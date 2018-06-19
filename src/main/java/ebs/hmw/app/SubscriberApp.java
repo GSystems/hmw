@@ -1,9 +1,7 @@
 package ebs.hmw.app;
 
-import ebs.hmw.bolts.FilterBolt;
 import ebs.hmw.bolts.MetricsBolt;
 import ebs.hmw.bolts.SubscriberBolt;
-import ebs.hmw.spouts.PublicationSpout;
 import ebs.hmw.spouts.SubscriberSpout;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
@@ -11,24 +9,14 @@ import org.apache.storm.topology.TopologyBuilder;
 
 import static ebs.hmw.util.GeneralConstants.*;
 
-public class HmwApp {
+public class SubscriberApp {
 
-	private static final String PUBLISHER_TOPOLOGY = "publisher_topology";
-	private static final String BROKER_TOPOLOGY = "broker_topology";
 	private static final String SUBSCRIBER_TOPOLOGY = "subscriber_topology";
 
 	public static void main(String[] args) {
-
-		TopologyBuilder publisherTopology = createPublisherTopology();
-		TopologyBuilder brokerTopology = createBrokerTopology();
 		TopologyBuilder subscriberTopology = createSubscriberTopology();
 
-		Config publisherTopologyConfig = new Config();
-		publisherTopologyConfig.put(PUBS_FILE_PARAM, PUBS_FILE);
-
 		LocalCluster cluster = new LocalCluster();
-		cluster.submitTopology(PUBLISHER_TOPOLOGY, publisherTopologyConfig, publisherTopology.createTopology());
-		cluster.submitTopology(BROKER_TOPOLOGY, new Config(), brokerTopology.createTopology());
 		cluster.submitTopology(SUBSCRIBER_TOPOLOGY, new Config(), subscriberTopology.createTopology());
 
 		try {
@@ -37,34 +25,8 @@ public class HmwApp {
 			e.printStackTrace();
 		}
 
-		cluster.killTopology(PUBLISHER_TOPOLOGY);
-		cluster.killTopology(BROKER_TOPOLOGY);
 		cluster.killTopology(SUBSCRIBER_TOPOLOGY);
-
 		cluster.shutdown();
-	}
-
-	private static TopologyBuilder createPublisherTopology() {
-		TopologyBuilder publisherTopology = new TopologyBuilder();
-
-		PublicationSpout publisher = new PublicationSpout();
-		publisherTopology.setSpout(PUBLISHER_SPOUT_1, publisher);
-
-		return publisherTopology;
-	}
-
-	private static TopologyBuilder createBrokerTopology() {
-		TopologyBuilder brokerTopology = new TopologyBuilder();
-
-		FilterBolt filterBolt = new FilterBolt();
-
-		brokerTopology.setBolt(FILTER_BOLT_ID, filterBolt)
-				.shuffleGrouping(PUBLISHER_SPOUT_1)
-				.shuffleGrouping(SUBSCRIBER_SPOUT_1)
-				.shuffleGrouping(SUBSCRIBER_SPOUT_2)
-				.shuffleGrouping(SUBSCRIBER_SPOUT_3);
-
-		return brokerTopology;
 	}
 
 	private static TopologyBuilder createSubscriberTopology() {

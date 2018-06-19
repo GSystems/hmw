@@ -1,7 +1,6 @@
 package ebs.hmw.spouts;
 
 import ebs.hmw.model.Publication;
-import ebs.hmw.util.GeneralConstants;
 import ebs.hmw.util.PubSubGenConf;
 import ebs.hmw.util.TopoConverter;
 import org.apache.commons.lang3.tuple.Pair;
@@ -27,11 +26,11 @@ import static ebs.hmw.util.PubFieldsEnum.*;
 import static ebs.hmw.util.PubSubGenConf.*;
 import static ebs.hmw.util.TopoConverter.extractPubFromLine;
 
-public class PublicationSpout extends BaseRichSpout {
+public class PublisherSpout extends BaseRichSpout {
 
 	private static final Integer MAX_FAILS =
 			PubSubGenConf.PUB_TOTAL_MESSAGES_NUMBER * 2 / 100;
-	static Logger LOG = Logger.getLogger(PublicationSpout.class);
+	static Logger LOG = Logger.getLogger(PublisherSpout.class);
 
 	private SpoutOutputCollector collector;
 	private Map<Integer, Publication> pubs;
