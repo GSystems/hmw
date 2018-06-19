@@ -6,3 +6,6 @@ target
 *.txt
 
 .DS_Store
+publicationList
+subscriptionList
+addressbook

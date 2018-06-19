@@ -3,6 +3,9 @@ package ebs.hmw.gooProBuf.tutorial;
 import ebs.hmw.gooProBuf.tutorial.AddressBookProtos.*;
 
 import java.io.*;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class Serialization {
 
@@ -52,19 +55,33 @@ public class Serialization {
 	public static void main(String[] args) throws IOException {
 		AddressBook.Builder addressBook = AddressBook.newBuilder();
 		// Read the existing address book.
-		String path = "C:\\projects\\git\\hmw\\addressbook";
+//		String path = "C:\\projects\\git\\hmw\\addressbook";
+		File file = new File(getResourcePath() + "/addressbook");
 		try {
-			addressBook.mergeFrom(new FileInputStream(path));
+			addressBook.mergeFrom(new FileInputStream(file));
 		} catch (FileNotFoundException e) {
-			System.out.println(path + ": File not found.  Creating a new file.");
+			System.out.println(file + ": File not found.  Creating a new file.");
 		}
 
 		// Add an address.
 		addressBook.addPeople(PromptForAddress(new BufferedReader(new InputStreamReader(System.in)), System.out));
 
 		// Write the new address book back to disk.
-		FileOutputStream output = new FileOutputStream(path);
+		FileOutputStream output = new FileOutputStream(file);
 		addressBook.build().writeTo(output);
 		output.close();
+	}
+
+	private static String getResourcePath() {
+		try {
+			URI resourcePathFile = System.class.getResource("/src/main/resources").toURI();
+			String resourcePath = Files.readAllLines(Paths.get(resourcePathFile)).get(0);
+			URI rootURI = new File("").toURI();
+			URI resourceURI = new File(resourcePath).toURI();
+			URI relativeResourceURI = rootURI.relativize(resourceURI);
+			return relativeResourceURI.getPath();
+		} catch (Exception e) {
+			return null;
+		}
 	}
 }
